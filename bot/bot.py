@@ -18,6 +18,8 @@ from telegram.ext import (
 # локально подхватит .env, на Render переменные возьмутся из окружения
 load_dotenv()
 
+
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # 🔹 BACKEND_URL из env, локально по умолчанию — 127.0.0.1
@@ -25,6 +27,8 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 # 🔹 URL твоего web-приложения (React/Next/что угодно)
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://example.com")
+
+print(">>> BACKEND_URL =", BACKEND_URL)
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set in environment variables")
