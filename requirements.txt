@@ -3,3 +3,6 @@ uvicorn[standard]
 SQLAlchemy
 python-dotenv
 psycopg2-binary
+python-telegram-bot[ext]==21.6
+httpx==0.27.2
+python-dotenv==1.0.1
