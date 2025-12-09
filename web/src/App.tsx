@@ -296,7 +296,7 @@ function App() {
             Создать турнир
           </Typography>
 
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 } }}>
             <Stack spacing={3}>
               <TextField
                 label="Название турнира"
@@ -308,7 +308,7 @@ function App() {
 
               {/* Выбор режима турнира */}
               <Box>
-                <Typography variant="subtitle1" gutterBottom>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500 }}>
                   Режим:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -348,9 +348,16 @@ function App() {
                 </Box>
 
                 {scoreType === "points" && (
-                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                    <Typography variant="body2">Лимит очков:</Typography>
-                    <Stack direction="row" spacing={1}>
+                  <Stack 
+                    direction={{ xs: 'column', sm: 'row' }} 
+                    spacing={2} 
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    flexWrap="wrap"
+                  >
+                    <Typography variant="body2" sx={{ minWidth: 'fit-content' }}>
+                      Лимит очков:
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {[16, 24, 32].map((val) => (
                         <Chip
                           key={val}
@@ -375,15 +382,22 @@ function App() {
                           setPointsLimit(Number(v));
                         }
                       }}
-                      sx={{ width: 120 }}
+                      sx={{ width: { xs: '100%', sm: 120 } }}
                     />
                   </Stack>
                 )}
 
                 {scoreType === "sets" && (
-                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                    <Typography variant="body2">До скольки сетов:</Typography>
-                    <Stack direction="row" spacing={1}>
+                  <Stack 
+                    direction={{ xs: 'column', sm: 'row' }} 
+                    spacing={2} 
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    flexWrap="wrap"
+                  >
+                    <Typography variant="body2" sx={{ minWidth: 'fit-content' }}>
+                      До скольки сетов:
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {[1, 3, 5].map((val) => (
                         <Chip
                           key={val}
@@ -408,7 +422,7 @@ function App() {
                           setSetsLimit(Number(v));
                         }
                       }}
-                      sx={{ width: 120 }}
+                      sx={{ width: { xs: '100%', sm: 120 } }}
                     />
                   </Stack>
                 )}
@@ -504,8 +518,8 @@ function App() {
             Рейтинг игроков
           </Typography>
 
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500 }}>
               Режим:
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -534,55 +548,66 @@ function App() {
           )}
 
           {!loadingRating && ratingTable.length > 0 && (
-            <Paper sx={{ p: 2 }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>#</TableCell>
-                    <TableCell>Игрок</TableCell>
-                    <TableCell>Рейтинг</TableCell>
-                    <TableCell>Буква</TableCell>
-                    <TableCell>Игры (В/Н/П)</TableCell>
-                    <TableCell>Сеты (В/П, Δ)</TableCell>
-                    <TableCell>Очки (+/-)</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {ratingTable.map((row, idx) => (
-                    <TableRow key={row.player_id}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell>
-                        {row.display_name}
-                        {row.username && (
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            sx={{ color: "text.secondary", ml: 0.5 }}
-                          >
-                            @{row.username}
-                          </Typography>
-                        )}
+            <Paper sx={{ p: { xs: 1, sm: 2 }, overflow: 'auto' }}>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 650 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Игрок</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Рейтинг</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Буква</TableCell>
+                      <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>
+                        Игры (В/Н/П)
                       </TableCell>
-                      <TableCell>{Math.round(row.current_rating)}</TableCell>
-                      <TableCell>{row.rating_letter ?? "—"}</TableCell>
-                      <TableCell>
-                        {row.games_played} ({row.wins_games}/{row.draws_games}/
-                        {row.losses_games})
-                      </TableCell>
-                      <TableCell>
-                        {row.wins_sets}/{row.losses_sets} (
-                        {row.delta_sets >= 0 ? "+" : ""}
-                        {row.delta_sets})
-                      </TableCell>
-                      <TableCell>
-                        {row.points_scored}/{row.points_conceded} (
-                        {row.delta_points >= 0 ? "+" : ""}
-                        {row.delta_points})
+                      <TableCell sx={{ fontWeight: 600 }}>Сеты (В/П, Δ)</TableCell>
+                      <TableCell sx={{ fontWeight: 600, display: { xs: 'none', lg: 'table-cell' } }}>
+                        Очки (+/-)
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {ratingTable.map((row, idx) => (
+                      <TableRow key={row.player_id} hover>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                              {row.display_name}
+                            </Typography>
+                            {row.username && (
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                sx={{ color: "text.secondary", ml: 0.5, display: { xs: 'none', sm: 'inline' } }}
+                              >
+                                @{row.username}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {Math.round(row.current_rating)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{row.rating_letter ?? "—"}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                          {row.games_played} ({row.wins_games}/{row.draws_games}/{row.losses_games})
+                        </TableCell>
+                        <TableCell>
+                          {row.wins_sets}/{row.losses_sets} ({row.delta_sets >= 0 ? "+" : ""}
+                          {row.delta_sets})
+                        </TableCell>
+                        <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                          {row.points_scored}/{row.points_conceded} ({row.delta_points >= 0 ? "+" : ""}
+                          {row.delta_points})
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
             </Paper>
           )}
         </Box>
@@ -607,39 +632,53 @@ function App() {
         )}
 
         {!loadingPlayers && players.length > 0 && (
-          <Paper sx={{ p: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Имя</TableCell>
-                  <TableCell>Username</TableCell>
-                  <TableCell>Пол</TableCell>
-                  <TableCell>Рейтинг</TableCell>
-                  <TableCell>Буква</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {players.map((p, idx) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{p.display_name}</TableCell>
-                    <TableCell>{p.username ? `@${p.username}` : "—"}</TableCell>
-                    <TableCell>
-                      {p.gender === "male"
-                        ? "М"
-                        : p.gender === "female"
-                        ? "Ж"
-                        : p.gender === "other"
-                        ? "Другое"
-                        : "—"}
+          <Paper sx={{ p: { xs: 1, sm: 2 }, overflow: 'auto' }}>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 500 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Имя</TableCell>
+                    <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>
+                      Username
                     </TableCell>
-                    <TableCell>{Math.round(p.current_rating)}</TableCell>
-                    <TableCell>{p.rating_letter ?? "—"}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Пол</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Рейтинг</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Буква</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {players.map((p, idx) => (
+                    <TableRow key={p.id} hover>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {p.display_name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {p.username ? `@${p.username}` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {p.gender === "male"
+                          ? "М"
+                          : p.gender === "female"
+                          ? "Ж"
+                          : p.gender === "other"
+                          ? "Другое"
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {Math.round(p.current_rating)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{p.rating_letter ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           </Paper>
         )}
       </Box>
@@ -656,11 +695,23 @@ function App() {
               Padel Admin
             </Typography>
 
-            <Stack direction="row" spacing={1}>
+            <Stack 
+              direction="row" 
+              spacing={1}
+              sx={{
+                flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                gap: { xs: 0.5, sm: 1 }
+              }}
+            >
               <Button
                 color="inherit"
                 variant={view === "createTournament" ? "outlined" : "text"}
                 onClick={() => setView("createTournament")}
+                size="small"
+                sx={{ 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  px: { xs: 1, sm: 2 }
+                }}
               >
                 Создать турнир
               </Button>
@@ -668,24 +719,43 @@ function App() {
                 color="inherit"
                 variant={view === "rating" ? "outlined" : "text"}
                 onClick={() => setView("rating")}
+                size="small"
+                sx={{ 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  px: { xs: 1, sm: 2 }
+                }}
               >
-                Посмотреть рейтинг
+                Рейтинг
               </Button>
               <Button
                 color="inherit"
                 variant={view === "players" ? "outlined" : "text"}
                 onClick={() => setView("players")}
+                size="small"
+                sx={{ 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  px: { xs: 1, sm: 2 }
+                }}
               >
-                Просмотр игроков
+                Игроки
               </Button>
             </Stack>
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
+        <Container 
+          maxWidth="lg" 
+          sx={{ 
+            mt: { xs: 2, sm: 3 }, 
+            mb: { xs: 2, sm: 4 },
+            px: { xs: 1, sm: 2 }
+          }}
+        >
           {error && (
             <Box mb={2}>
-              <Alert severity="error">{error}</Alert>
+              <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
             </Box>
           )}
 
