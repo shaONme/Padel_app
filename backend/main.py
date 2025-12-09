@@ -309,18 +309,39 @@ def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
 
     # создаём связки участников, если передали
     participant_ids: List[int] = payload.participants or []
-    for pid in participant_ids:
-        # можно проверить, что такой игрок существует
-        # player = db.get(Player, pid)
-        # if not player: continue / ошибка
-        tp = TournamentPlayer(
-            tournament_id=tournament.id,
-            player_id=pid,
-        )
-        db.add(tp)
+    if participant_ids:
+        # проверяем, что все игроки существуют
+        existing_players = db.query(Player).filter(Player.id.in_(participant_ids)).all()
+        existing_ids = {p.id for p in existing_players}
+        missing_ids = set(participant_ids) - existing_ids
+        if missing_ids:
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Игроки с ID {sorted(missing_ids)} не найдены в базе данных"
+            )
+        
+        # проверяем на дубликаты
+        if len(participant_ids) != len(set(participant_ids)):
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Обнаружены дублирующиеся ID игроков"
+            )
+        
+        for pid in participant_ids:
+            tp = TournamentPlayer(
+                tournament_id=tournament.id,
+                player_id=pid,
+            )
+            db.add(tp)
 
-    db.commit()
-    db.refresh(tournament)
+    try:
+        db.commit()
+        db.refresh(tournament)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении турнира: {str(e)}")
 
     # собираем список id участников для ответа
     participants_ids = [tp.player_id for tp in tournament.participants]

@@ -267,21 +267,44 @@ function App() {
     setTournamentResult(null);
 
     try {
+      const requestBody = {
+        name: tournamentName.trim(),
+        mode: tournamentMode,
+        scoring_type: scoreType,                                // "points" | "sets"
+        points_limit: scoreType === "points" 
+          ? (typeof pointsLimit === "number" ? pointsLimit : null) 
+          : null,
+        sets_limit: scoreType === "sets" 
+          ? (typeof setsLimit === "number" ? setsLimit : null) 
+          : null,
+        participants: participantIds,                           // список ID игроков
+      };
+
+      console.log("Отправка запроса на создание турнира:", requestBody);
+
       const res = await fetch(`${API_URL}/tournaments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: tournamentName.trim(),
-          mode: tournamentMode,
-          scoring_type: scoreType,                                // "points" | "sets"
-          points_limit: scoreType === "points" ? pointsLimit || null : null,
-          sets_limit: scoreType === "sets" ? setsLimit || null : null,
-          participants: participantIds,                           // список ID игроков
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        let errorMessage = `Ошибка ${res.status}`;
+        try {
+          const errorData = await res.json();
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          // Если не удалось распарсить JSON, используем текст ответа
+          const text = await res.text();
+          if (text) {
+            errorMessage = text;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data: Tournament = await res.json();
@@ -291,8 +314,9 @@ function App() {
       setParticipantsDialogOpen(false);
       // оставляем режим, тип счёта — можно по желанию чистить
     } catch (e: any) {
-      console.error(e);
-      setError("Не удалось создать турнир");
+      console.error("Ошибка при создании турнира:", e);
+      const errorMessage = e.message || "Не удалось создать турнир";
+      setError(errorMessage);
     } finally {
       setCreatingTournament(false);
     }
