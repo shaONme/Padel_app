@@ -1,4 +1,28 @@
 import { useEffect, useState } from "react";
+import {
+  ThemeProvider,
+  createTheme,
+} from "@mui/material/styles";
+import {
+  CssBaseline,
+  AppBar,
+  Toolbar,
+  Typography,
+  Container,
+  Box,
+  Button,
+  Stack,
+  TextField,
+  Paper,
+  CircularProgress,
+  Alert,
+  Chip,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+} from "@mui/material";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -42,7 +66,33 @@ interface Tournament {
   status: string;
 }
 
+interface Player {
+  id: number;
+  tg_id: number;
+  username: string | null;
+  display_name: string;
+  gender: "male" | "female" | "other" | null;
+  current_rating: number;
+  rating_letter: string | null;
+}
+
+type View = "rating" | "createTournament" | "players";
+
+const theme = createTheme({
+  palette: {
+    mode: "light",
+    primary: {
+      main: "#1976d2",
+    },
+    background: {
+      default: "#f5f7fb",
+    },
+  },
+});
+
 function App() {
+  const [view, setView] = useState<View>("rating");
+
   const [health, setHealth] = useState<string>("проверяем...");
   const [ratingModes, setRatingModes] = useState<RatingMode[]>([]);
   const [selectedMode, setSelectedMode] = useState<RatingModeCode | null>(null);
@@ -50,18 +100,24 @@ function App() {
   const [loadingRating, setLoadingRating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // для создания турнира
+  // создание турнира
   const [tournamentName, setTournamentName] = useState("");
   const [tournamentMode, setTournamentMode] = useState<RatingModeCode | null>(null);
   const [tournamentResult, setTournamentResult] = useState<Tournament | null>(null);
   const [creatingTournament, setCreatingTournament] = useState(false);
 
+  // просмотр игроков
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+
   useEffect(() => {
+    // health
     fetch(`${API_URL}/health`)
       .then((res) => res.json())
       .then((data) => setHealth(`OK (${JSON.stringify(data)})`))
       .catch(() => setHealth("Ошибка соединения с backend"));
 
+    // режимы рейтинга
     fetch(`${API_URL}/rating/modes`)
       .then((res) => res.json())
       .then((data: RatingMode[]) => {
@@ -72,6 +128,7 @@ function App() {
       });
   }, []);
 
+  // подгрузка таблицы рейтинга
   const loadRating = async (mode: RatingModeCode) => {
     setSelectedMode(mode);
     setLoadingRating(true);
@@ -91,6 +148,33 @@ function App() {
       setLoadingRating(false);
     }
   };
+
+  // подгрузка списка игроков
+  const loadPlayers = async () => {
+    setLoadingPlayers(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/players`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data: Player[] = await res.json();
+      setPlayers(data);
+    } catch (e: any) {
+      console.error(e);
+      setError("Не удалось загрузить список игроков");
+      setPlayers([]);
+    } finally {
+      setLoadingPlayers(false);
+    }
+  };
+
+  // когда переключаемся на экран игроков — грузим список
+  useEffect(() => {
+    if (view === "players") {
+      loadPlayers();
+    }
+  }, [view]);
 
   const handleCreateTournament = async () => {
     if (!tournamentName.trim() || !tournamentMode) {
@@ -118,7 +202,6 @@ function App() {
       const data: Tournament = await res.json();
       setTournamentResult(data);
       setTournamentName("");
-      // tournamentMode оставим выделенным
     } catch (e: any) {
       console.error(e);
       setError("Не удалось создать турнир");
@@ -127,190 +210,267 @@ function App() {
     }
   };
 
-  return (
-    <div style={{ fontFamily: "system-ui, sans-serif", padding: "24px", maxWidth: 1100, margin: "0 auto" }}>
-      <h1>Padel Admin</h1>
-      <p>
-        Backend health: <b>{health}</b>
-      </p>
+  const renderContent = () => {
+    if (view === "createTournament") {
+      return (
+        <Box mt={3}>
+          <Typography variant="h5" gutterBottom>
+            Создать турнир
+          </Typography>
 
-      <div style={{ display: "flex", gap: 16, marginTop: 16, marginBottom: 16 }}>
-        <button
-          style={{
-            padding: "10px 18px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            cursor: "pointer",
-          }}
-          onClick={() => {
-            // просто фокусируемся на блоке создания турнира
-            document.getElementById("create-tournament")?.scrollIntoView({ behavior: "smooth" });
-          }}
-        >
-          Создать турнир
-        </button>
+          <Paper sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <TextField
+                label="Название турнира"
+                value={tournamentName}
+                onChange={(e) => setTournamentName(e.target.value)}
+                placeholder="Например: Найскок 21.12"
+                fullWidth
+              />
 
-        <button
-          style={{
-            padding: "10px 18px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            cursor: "pointer",
-          }}
-          onClick={() => {
-            document.getElementById("rating-section")?.scrollIntoView({ behavior: "smooth" });
-          }}
-        >
-          Посмотреть рейтинг
-        </button>
-      </div>
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Режим:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {ratingModes.map((mode) => (
+                    <Chip
+                      key={mode.code}
+                      label={mode.name}
+                      clickable
+                      onClick={() => setTournamentMode(mode.code)}
+                      color={tournamentMode === mode.code ? "primary" : "default"}
+                      variant={tournamentMode === mode.code ? "filled" : "outlined"}
+                      sx={{ mb: 1 }}
+                    />
+                  ))}
+                </Stack>
+              </Box>
 
-      {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
+              <Box>
+                <Button
+                  variant="contained"
+                  onClick={handleCreateTournament}
+                  disabled={creatingTournament}
+                >
+                  {creatingTournament ? "Создаём..." : "Создать турнир"}
+                </Button>
+              </Box>
 
-      {/* Блок создания турнира */}
-      <section id="create-tournament" style={{ marginTop: 32, marginBottom: 40 }}>
-        <h2>Создать турнир</h2>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Название турнира:
-            <input
-              type="text"
-              value={tournamentName}
-              onChange={(e) => setTournamentName(e.target.value)}
-              style={{ marginLeft: 8, padding: 4, minWidth: 260 }}
-              placeholder="Например: Найскок 21.12"
-            />
-          </label>
-        </div>
+              {tournamentResult && (
+                <Alert severity="success">
+                  Турнир создан: #{tournamentResult.id} — {tournamentResult.name} (
+                  {tournamentResult.mode})
+                </Alert>
+              )}
+            </Stack>
+          </Paper>
+        </Box>
+      );
+    }
 
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ marginBottom: 4 }}>Режим:</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {ratingModes.map((mode) => (
-              <button
-                key={mode.code}
-                type="button"
-                onClick={() => setTournamentMode(mode.code)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: tournamentMode === mode.code ? "2px solid #007bff" : "1px solid #ccc",
-                  background: tournamentMode === mode.code ? "#e6f0ff" : "white",
-                  cursor: "pointer",
-                }}
-              >
-                {mode.name}
-              </button>
-            ))}
-          </div>
-        </div>
+    if (view === "rating") {
+      return (
+        <Box mt={3}>
+          <Typography variant="h5" gutterBottom>
+            Рейтинг игроков
+          </Typography>
 
-        <button
-          onClick={handleCreateTournament}
-          disabled={creatingTournament}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            cursor: "pointer",
-          }}
-        >
-          {creatingTournament ? "Создаём..." : "Создать турнир"}
-        </button>
-
-        {tournamentResult && (
-          <div style={{ marginTop: 12, color: "green" }}>
-            Турнир создан: #{tournamentResult.id} — {tournamentResult.name} ({tournamentResult.mode})
-          </div>
-        )}
-      </section>
-
-      {/* Блок рейтинга */}
-      <section id="rating-section" style={{ marginTop: 32 }}>
-        <h2>Рейтинг игроков</h2>
-
-        <div style={{ marginBottom: 12 }}>
-          <span style={{ marginRight: 8 }}>Выбери режим:</span>
-          {ratingModes.map((mode) => (
-            <button
-              key={mode.code}
-              type="button"
-              onClick={() => loadRating(mode.code)}
-              style={{
-                marginRight: 6,
-                marginBottom: 6,
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: selectedMode === mode.code ? "2px solid #007bff" : "1px solid #ccc",
-                background: selectedMode === mode.code ? "#e6f0ff" : "white",
-                cursor: "pointer",
-              }}
-            >
-              {mode.name}
-            </button>
-          ))}
-        </div>
-
-        {loadingRating && <div>Загружаем рейтинг...</div>}
-
-        {!loadingRating && selectedMode && ratingTable.length === 0 && (
-          <div>По этому режиму пока нет данных.</div>
-        )}
-
-        {!loadingRating && ratingTable.length > 0 && (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginTop: 12,
-              fontSize: 14,
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>#</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Игрок</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Рейтинг</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Буква</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Игры (В/Н/П)</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Сеты (В/П)</th>
-                <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 6 }}>Очки (+/-)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ratingTable.map((row, idx) => (
-                <tr key={row.player_id}>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>{idx + 1}</td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {row.display_name}
-                    {row.username && (
-                      <span style={{ color: "#888", marginLeft: 4 }}>@{row.username}</span>
-                    )}
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {Math.round(row.current_rating)}
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {row.rating_letter ?? "—"}
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {row.games_played} ({row.wins_games}/{row.draws_games}/{row.losses_games})
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {row.wins_sets}/{row.losses_sets} ({row.delta_sets >= 0 ? "+" : ""}
-                    {row.delta_sets})
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f0f0f0", padding: 6 }}>
-                    {row.points_scored}/{row.points_conceded} ({row.delta_points >= 0 ? "+" : ""}
-                    {row.delta_points})
-                  </td>
-                </tr>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Режим:
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {ratingModes.map((mode) => (
+                <Chip
+                  key={mode.code}
+                  label={mode.name}
+                  clickable
+                  onClick={() => loadRating(mode.code)}
+                  color={selectedMode === mode.code ? "primary" : "default"}
+                  variant={selectedMode === mode.code ? "filled" : "outlined"}
+                  sx={{ mb: 1 }}
+                />
               ))}
-            </tbody>
-          </table>
+            </Stack>
+          </Paper>
+
+          {loadingRating && (
+            <Box display="flex" justifyContent="center" mt={4}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {!loadingRating && selectedMode && ratingTable.length === 0 && (
+            <Alert severity="info">По этому режиму пока нет данных.</Alert>
+          )}
+
+          {!loadingRating && ratingTable.length > 0 && (
+            <Paper sx={{ p: 2 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>#</TableCell>
+                    <TableCell>Игрок</TableCell>
+                    <TableCell>Рейтинг</TableCell>
+                    <TableCell>Буква</TableCell>
+                    <TableCell>Игры (В/Н/П)</TableCell>
+                    <TableCell>Сеты (В/П, Δ)</TableCell>
+                    <TableCell>Очки (+/-)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {ratingTable.map((row, idx) => (
+                    <TableRow key={row.player_id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>
+                        {row.display_name}
+                        {row.username && (
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            sx={{ color: "text.secondary", ml: 0.5 }}
+                          >
+                            @{row.username}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{Math.round(row.current_rating)}</TableCell>
+                      <TableCell>{row.rating_letter ?? "—"}</TableCell>
+                      <TableCell>
+                        {row.games_played} ({row.wins_games}/{row.draws_games}/
+                        {row.losses_games})
+                      </TableCell>
+                      <TableCell>
+                        {row.wins_sets}/{row.losses_sets} (
+                        {row.delta_sets >= 0 ? "+" : ""}
+                        {row.delta_sets})
+                      </TableCell>
+                      <TableCell>
+                        {row.points_scored}/{row.points_conceded} (
+                        {row.delta_points >= 0 ? "+" : ""}
+                        {row.delta_points})
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
+        </Box>
+      );
+    }
+
+    // view === "players"
+    return (
+      <Box mt={3}>
+        <Typography variant="h5" gutterBottom>
+          Игроки
+        </Typography>
+
+        {loadingPlayers && (
+          <Box display="flex" justifyContent="center" mt={4}>
+            <CircularProgress />
+          </Box>
         )}
-      </section>
-    </div>
+
+        {!loadingPlayers && players.length === 0 && (
+          <Alert severity="info">Пока нет игроков.</Alert>
+        )}
+
+        {!loadingPlayers && players.length > 0 && (
+          <Paper sx={{ p: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Имя</TableCell>
+                  <TableCell>Username</TableCell>
+                  <TableCell>Пол</TableCell>
+                  <TableCell>Рейтинг</TableCell>
+                  <TableCell>Буква</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {players.map((p, idx) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell>{p.display_name}</TableCell>
+                    <TableCell>{p.username ? `@${p.username}` : "—"}</TableCell>
+                    <TableCell>
+                      {p.gender === "male"
+                        ? "М"
+                        : p.gender === "female"
+                        ? "Ж"
+                        : p.gender === "other"
+                        ? "Другое"
+                        : "—"}
+                    </TableCell>
+                    <TableCell>{Math.round(p.current_rating)}</TableCell>
+                    <TableCell>{p.rating_letter ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ flexGrow: 1 }}>
+        <AppBar position="static" elevation={1}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Padel Admin
+            </Typography>
+
+            <Stack direction="row" spacing={1}>
+              <Button
+                color={view === "createTournament" ? "inherit" : "inherit"}
+                variant={view === "createTournament" ? "outlined" : "text"}
+                onClick={() => setView("createTournament")}
+              >
+                Создать турнир
+              </Button>
+              <Button
+                color={view === "rating" ? "inherit" : "inherit"}
+                variant={view === "rating" ? "outlined" : "text"}
+                onClick={() => setView("rating")}
+              >
+                Посмотреть рейтинг
+              </Button>
+              <Button
+                color={view === "players" ? "inherit" : "inherit"}
+                variant={view === "players" ? "outlined" : "text"}
+                onClick={() => setView("players")}
+              >
+                Просмотр игроков
+              </Button>
+            </Stack>
+          </Toolbar>
+        </AppBar>
+
+        <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
+          <Box mb={2}>
+            <Typography variant="body2" color="text.secondary">
+              Backend health: <b>{health}</b>
+            </Typography>
+          </Box>
+
+          {error && (
+            <Box mb={2}>
+              <Alert severity="error">{error}</Alert>
+            </Box>
+          )}
+
+          {renderContent()}
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 }
 
