@@ -119,26 +119,31 @@ def health():
     return {"status": "ok"}
 
 
+from sqlalchemy.exc import SQLAlchemyError
+
 @app.post("/players/register", response_model=PlayerOut)
 def register_player(data: PlayerCreate, db: Session = Depends(get_db)):
-    # ищем игрока по tg_id
-    player = db.query(Player).filter(Player.tg_id == data.tg_id).first()
-    if player:
-        # если существует — обновим имя/юзернейм
-        player.username = data.username
-        player.display_name = data.display_name
-    else:
-        # если нет — создаём
-        player = Player(
-            tg_id=data.tg_id,
-            username=data.username,
-            display_name=data.display_name,
-        )
-        db.add(player)
+    try:
+        player = db.query(Player).filter(Player.tg_id == data.tg_id).first()
+        if player:
+            player.username = data.username
+            player.display_name = data.display_name
+        else:
+            player = Player(
+                tg_id=data.tg_id,
+                username=data.username,
+                display_name=data.display_name,
+            )
+            db.add(player)
 
-    db.commit()
-    db.refresh(player)
-    return player
+        db.commit()
+        db.refresh(player)
+        return player
+    except SQLAlchemyError as e:
+        db.rollback()
+        print("DB ERROR in /players/register:", repr(e))  # уйдёт в логи Render
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/players/by_tg/{tg_id}", response_model=PlayerOut)
 def get_player_by_tg(tg_id: int, db: Session = Depends(get_db)):
