@@ -92,18 +92,172 @@ type View = "rating" | "createTournament" | "players";
 
 const theme = createTheme({
   palette: {
-    mode: "light",
+    mode: "dark",
     primary: {
-      main: "#1976d2",
+      main: "#ff9800", // оранжевый для заголовков и акцентов
+    },
+    secondary: {
+      main: "#b0b0b0", // светло-серый для кнопок
     },
     background: {
-      default: "#f5f7fb",
+      default: "#2d2d2d", // темно-серый фон
+      paper: "#3a3a3a", // немного светлее для карточек
+    },
+    text: {
+      primary: "#ffffff", // белый текст для читаемости
+      secondary: "#b0b0b0", // светло-серый для вторичного текста
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#b0b0b0",
+          color: "#1a1a1a",
+          "&:hover": {
+            backgroundColor: "#c0c0c0",
+          },
+          "&.MuiButton-containedPrimary": {
+            backgroundColor: "#ff9800",
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: "#fb8c00",
+            },
+          },
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#1a1a1a",
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#3a3a3a",
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiOutlinedInput-root": {
+            backgroundColor: "#2d2d2d",
+            "& fieldset": {
+              borderColor: "#555555",
+            },
+            "&:hover fieldset": {
+              borderColor: "#ff9800",
+            },
+            "&.Mui-focused fieldset": {
+              borderColor: "#ff9800",
+            },
+          },
+          "& .MuiInputLabel-root": {
+            color: "#b0b0b0",
+          },
+          "& .MuiInputLabel-root.Mui-focused": {
+            color: "#ff9800",
+          },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#4a4a4a",
+          color: "#ffffff",
+          "&.MuiChip-clickable:hover": {
+            backgroundColor: "#5a5a5a",
+          },
+        },
+        colorPrimary: {
+          backgroundColor: "#ff9800",
+          color: "#ffffff",
+        },
+      },
+    },
+    MuiTable: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#3a3a3a",
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderColor: "#555555",
+          color: "#ffffff",
+        },
+        head: {
+          backgroundColor: "#2d2d2d",
+          color: "#ff9800",
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          "&:hover": {
+            backgroundColor: "#4a4a4a",
+          },
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: "#3a3a3a",
+        },
+      },
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: "#3a3a3a",
+        },
+        option: {
+          "&:hover": {
+            backgroundColor: "#4a4a4a",
+          },
+        },
+      },
+    },
+    MuiToggleButtonGroup: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#2d2d2d",
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          color: "#b0b0b0",
+          borderColor: "#555555",
+          "&.Mui-selected": {
+            backgroundColor: "#ff9800",
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: "#fb8c00",
+            },
+          },
+          "&:hover": {
+            backgroundColor: "#4a4a4a",
+          },
+        },
+      },
     },
   },
 });
 
 function App() {
-  const [view, setView] = useState<View>("rating");
+  const [view, setView] = useState<View>("createTournament");
 
   // режимы рейтинга
   const [ratingModes, setRatingModes] = useState<RatingMode[]>([]);
@@ -333,7 +487,7 @@ function App() {
     if (view === "createTournament") {
       return (
         <Box mt={3}>
-          <Typography variant="h5" gutterBottom>
+          <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
             Создать турнир
           </Typography>
 
@@ -349,7 +503,7 @@ function App() {
 
               {/* Выбор режима турнира */}
               <Box>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#ff9800" }}>
                   Режим:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -369,9 +523,9 @@ function App() {
 
               {/* Блок выбора счёта */}
               <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Счёт в турнире
-                </Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ color: "#ff9800" }}>
+              Счёт в турнире
+            </Typography>
 
                 <Box mb={2}>
                   <ToggleButtonGroup
@@ -498,12 +652,12 @@ function App() {
     if (view === "rating") {
       return (
         <Box mt={3}>
-          <Typography variant="h5" gutterBottom>
+          <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
             Рейтинг игроков
           </Typography>
 
           <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500 }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#ff9800" }}>
               Режим:
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -601,7 +755,7 @@ function App() {
     // view === "players"
     return (
       <Box mt={3}>
-        <Typography variant="h5" gutterBottom>
+        <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
           Игроки
         </Typography>
 
@@ -675,7 +829,7 @@ function App() {
       <Box sx={{ flexGrow: 1 }}>
         <AppBar position="static" elevation={1}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" sx={{ flexGrow: 1, color: "#ff9800", fontWeight: 600 }}>
               Padel Admin
             </Typography>
 
@@ -688,37 +842,55 @@ function App() {
               }}
             >
               <Button
-                color="inherit"
-                variant={view === "createTournament" ? "outlined" : "text"}
+                variant={view === "createTournament" ? "contained" : "outlined"}
                 onClick={() => setView("createTournament")}
                 size="small"
                 sx={{ 
                   fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 }
+                  px: { xs: 1, sm: 2 },
+                  backgroundColor: view === "createTournament" ? "#b0b0b0" : "transparent",
+                  color: view === "createTournament" ? "#1a1a1a" : "#b0b0b0",
+                  borderColor: "#b0b0b0",
+                  "&:hover": {
+                    backgroundColor: view === "createTournament" ? "#c0c0c0" : "#4a4a4a",
+                    borderColor: "#c0c0c0",
+                  }
                 }}
               >
                 Создать турнир
               </Button>
               <Button
-                color="inherit"
-                variant={view === "rating" ? "outlined" : "text"}
+                variant={view === "rating" ? "contained" : "outlined"}
                 onClick={() => setView("rating")}
                 size="small"
                 sx={{ 
                   fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 }
+                  px: { xs: 1, sm: 2 },
+                  backgroundColor: view === "rating" ? "#b0b0b0" : "transparent",
+                  color: view === "rating" ? "#1a1a1a" : "#b0b0b0",
+                  borderColor: "#b0b0b0",
+                  "&:hover": {
+                    backgroundColor: view === "rating" ? "#c0c0c0" : "#4a4a4a",
+                    borderColor: "#c0c0c0",
+                  }
                 }}
               >
                 Рейтинг
               </Button>
               <Button
-                color="inherit"
-                variant={view === "players" ? "outlined" : "text"}
+                variant={view === "players" ? "contained" : "outlined"}
                 onClick={() => setView("players")}
                 size="small"
                 sx={{ 
                   fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 }
+                  px: { xs: 1, sm: 2 },
+                  backgroundColor: view === "players" ? "#b0b0b0" : "transparent",
+                  color: view === "players" ? "#1a1a1a" : "#b0b0b0",
+                  borderColor: "#b0b0b0",
+                  "&:hover": {
+                    backgroundColor: view === "players" ? "#c0c0c0" : "#4a4a4a",
+                    borderColor: "#c0c0c0",
+                  }
                 }}
               >
                 Игроки
@@ -753,7 +925,7 @@ function App() {
           maxWidth="md"
           fullWidth
         >
-          <DialogTitle>
+          <DialogTitle sx={{ color: "#ff9800", fontWeight: 600 }}>
             Выбор участников турнира
           </DialogTitle>
           <DialogContent>
