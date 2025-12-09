@@ -31,6 +31,10 @@ class RatingModeEnum(str, Enum):
     MX_MIX = "mexicano_mix"
     KING = "king_of_court"
 
+class ScoringTypeEnum(str, enum.Enum):
+    POINTS = "points"
+    SETS = "sets"
+
 
 class Player(Base):
     __tablename__ = "players"
@@ -39,25 +43,15 @@ class Player(Base):
     tg_id = Column(Integer, unique=True, index=True, nullable=False)
     username = Column(String, nullable=True)
     display_name = Column(String, nullable=False)
-
-    # Новые поля
     gender = Column(SAEnum(GenderEnum), nullable=True)
     current_rating = Column(Float, nullable=False, default=1500.0)
     rating_letter = Column(String(2), nullable=True)  # типа "A+", "B-", "C" и т.д.
-
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Связь со статистикой по режимам
     stats = relationship("PlayerModeStats", back_populates="player")
 
 
 class PlayerModeStats(Base):
-    """
-    Аггрегированная статистика игрока по каждому режиму.
-    Вместо 7 отдельных таблиц – одна таблица с полем mode.
-    Если тебе критично иметь отдельные таблицы – можем разнести, но так проще и гибче.
-    """
-
     __tablename__ = "player_mode_stats"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -89,15 +83,80 @@ class PlayerModeStats(Base):
     player = relationship("Player", back_populates="stats")
 
 
+
+# 🔹 ОБНОВЛЁННАЯ модель турнира
 class Tournament(Base):
     __tablename__ = "tournaments"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    mode = Column(SAEnum(RatingModeEnum), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    mode = Column(SQLEnum(RatingModeEnum, name="ratingmodeenum"), nullable=False)
+    status = Column(String, default="draft")
 
-    # опционально: id админа (потом можно привязать к tg_id)
-    created_by_tg = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    status = Column(String, default="draft")  # draft / active / finished
+    scoring_type = Column(SQLEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
+    points_limit = Column(Integer, nullable=True)
+    sets_limit = Column(Integer, nullable=True)
+
+    participants = relationship(
+        "TournamentPlayer",
+        back_populates="tournament",
+        cascade="all, delete-orphan",
+    )
+    matches = relationship(
+        "TournamentMatch",
+        back_populates="tournament",
+        cascade="all, delete-orphan",
+    )
+
+
+# 🔹 НОВАЯ таблица участников турнира
+class TournamentPlayer(Base):
+    __tablename__ = "tournament_players"
+
+    tournament_id = Column(
+        Integer,
+        ForeignKey("tournaments.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    player_id = Column(
+        Integer,
+        ForeignKey("players.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tournament = relationship("Tournament", back_populates="participants")
+    player = relationship("Player")
+
+
+# 🔹 НОВАЯ таблица матчей турнира
+class TournamentMatch(Base):
+    __tablename__ = "tournament_matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tournament_id = Column(
+        Integer,
+        ForeignKey("tournaments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    round_number = Column(Integer, nullable=True)
+    court_number = Column(Integer, nullable=True)
+
+    player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+
+    score_type = Column(SQLEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
+    points1 = Column(Integer, nullable=True)
+    points2 = Column(Integer, nullable=True)
+    sets1 = Column(Integer, nullable=True)
+    sets2 = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tournament = relationship("Tournament", back_populates="matches")
+    player1 = relationship("Player", foreign_keys=[player1_id])
+    player2 = relationship("Player", foreign_keys=[player2_id])

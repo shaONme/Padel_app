@@ -196,11 +196,13 @@ function App() {
         body: JSON.stringify({
           name: tournamentName.trim(),
           mode: tournamentMode,
-          // scoring_type: scoreType,
-          // points_limit: scoreType === "points" ? pointsLimit || null : null,
-          // sets_limit: scoreType === "sets" ? setsLimit || null : null,
+          scoring_type: scoreType,                                // "points" | "sets"
+          points_limit: scoreType === "points" ? pointsLimit || null : null,
+          sets_limit: scoreType === "sets" ? setsLimit || null : null,
+          participants: [],                                       // позже сюда добавим список ID игроков
         }),
       });
+
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);

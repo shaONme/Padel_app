@@ -3,9 +3,19 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from .db import Base, engine, get_db
-from .models import Player, PlayerModeStats, RatingModeEnum, Tournament, GenderEnum
+from .models import (
+    Player,
+    PlayerModeStats,
+    RatingModeEnum,
+    Tournament,
+    GenderEnum,
+    ScoringTypeEnum,
+    TournamentPlayer,
+    TournamentMatch,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 
 # создаём таблицы в БД (players и т.д.)
@@ -88,9 +98,14 @@ class PlayerRatingRow(BaseModel):
         orm_mode = True
 
 
+
 class TournamentCreate(BaseModel):
     name: str
     mode: RatingModeEnum
+    scoring_type: ScoringTypeEnum
+    points_limit: Optional[int] = None
+    sets_limit: Optional[int] = None
+    participants: List[int] = []  # список ID игроков
 
 
 class TournamentOut(BaseModel):
@@ -98,6 +113,44 @@ class TournamentOut(BaseModel):
     name: str
     mode: RatingModeEnum
     status: str
+    created_at: datetime
+    scoring_type: ScoringTypeEnum
+    points_limit: Optional[int]
+    sets_limit: Optional[int]
+    participants: List[int]
+
+    class Config:
+        orm_mode = True
+
+
+class MatchCreate(BaseModel):
+    tournament_id: int
+    round_number: Optional[int] = None
+    court_number: Optional[int] = None
+
+    player1_id: int
+    player2_id: int
+
+    score_type: ScoringTypeEnum
+    points1: Optional[int] = None
+    points2: Optional[int] = None
+    sets1: Optional[int] = None
+    sets2: Optional[int] = None
+
+
+class MatchOut(BaseModel):
+    id: int
+    tournament_id: int
+    round_number: Optional[int]
+    court_number: Optional[int]
+    player1_id: int
+    player2_id: int
+    score_type: ScoringTypeEnum
+    points1: Optional[int]
+    points2: Optional[int]
+    sets1: Optional[int]
+    sets2: Optional[int]
+    created_at: datetime
 
     class Config:
         orm_mode = True
@@ -209,15 +262,79 @@ def get_rating_table(mode: RatingModeEnum, db: Session = Depends(get_db)):
 
 @app.post("/tournaments", response_model=TournamentOut)
 def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
-    # Тут потом можно подставлять tg_id админа (из бота / auth),
-    # пока оставим пустым.
+    # базовая валидация лимитов
+    if payload.scoring_type == ScoringTypeEnum.POINTS:
+        if payload.points_limit is None or payload.points_limit <= 0:
+            raise HTTPException(status_code=400, detail="Нужно указать положительный points_limit")
+    if payload.scoring_type == ScoringTypeEnum.SETS:
+        if payload.sets_limit is None or payload.sets_limit <= 0:
+            raise HTTPException(status_code=400, detail="Нужно указать положительный sets_limit")
+
     tournament = Tournament(
         name=payload.name,
         mode=payload.mode,
         status="draft",
+        scoring_type=payload.scoring_type,
+        points_limit=payload.points_limit if payload.scoring_type == ScoringTypeEnum.POINTS else None,
+        sets_limit=payload.sets_limit if payload.scoring_type == ScoringTypeEnum.SETS else None,
     )
     db.add(tournament)
+    db.flush()  # получаем tournament.id без commit
+
+    # создаём связки участников, если передали
+    participant_ids: List[int] = payload.participants or []
+    for pid in participant_ids:
+        # можно проверить, что такой игрок существует
+        # player = db.get(Player, pid)
+        # if not player: continue / ошибка
+        tp = TournamentPlayer(
+            tournament_id=tournament.id,
+            player_id=pid,
+        )
+        db.add(tp)
+
     db.commit()
     db.refresh(tournament)
-    return tournament
+
+    # собираем список id участников для ответа
+    participants_ids = [tp.player_id for tp in tournament.participants]
+
+    return TournamentOut(
+        id=tournament.id,
+        name=tournament.name,
+        mode=tournament.mode,
+        status=tournament.status,
+        created_at=tournament.created_at,
+        scoring_type=tournament.scoring_type,
+        points_limit=tournament.points_limit,
+        sets_limit=tournament.sets_limit,
+        participants=participants_ids,
+    )
+
+@app.post("/matches", response_model=MatchOut)
+def create_match(payload: MatchCreate, db: Session = Depends(get_db)):
+    # простая валидация под тип счёта
+    if payload.score_type == ScoringTypeEnum.POINTS:
+        if payload.points1 is None or payload.points2 is None:
+            raise HTTPException(status_code=400, detail="Для score_type=points нужно указать points1/points2")
+    if payload.score_type == ScoringTypeEnum.SETS:
+        if payload.sets1 is None or payload.sets2 is None:
+            raise HTTPException(status_code=400, detail="Для score_type=sets нужно указать sets1/sets2")
+
+    match = TournamentMatch(
+        tournament_id=payload.tournament_id,
+        round_number=payload.round_number,
+        court_number=payload.court_number,
+        player1_id=payload.player1_id,
+        player2_id=payload.player2_id,
+        score_type=payload.score_type,
+        points1=payload.points1,
+        points2=payload.points2,
+        sets1=payload.sets1,
+        sets2=payload.sets2,
+    )
+    db.add(match)
+    db.commit()
+    db.refresh(match)
+    return match
 
