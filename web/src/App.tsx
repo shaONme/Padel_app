@@ -22,6 +22,8 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -93,7 +95,7 @@ const theme = createTheme({
 function App() {
   const [view, setView] = useState<View>("rating");
 
-  const [health, setHealth] = useState<string>("проверяем...");
+  // режимы рейтинга
   const [ratingModes, setRatingModes] = useState<RatingMode[]>([]);
   const [selectedMode, setSelectedMode] = useState<RatingModeCode | null>(null);
   const [ratingTable, setRatingTable] = useState<PlayerRow[]>([]);
@@ -106,18 +108,17 @@ function App() {
   const [tournamentResult, setTournamentResult] = useState<Tournament | null>(null);
   const [creatingTournament, setCreatingTournament] = useState(false);
 
+  // счёт турнира
+  const [scoreType, setScoreType] = useState<"points" | "sets">("points");
+  const [pointsLimit, setPointsLimit] = useState<number | "">(16);
+  const [setsLimit, setSetsLimit] = useState<number | "">(1);
+
   // просмотр игроков
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
   useEffect(() => {
-    // health
-    fetch(`${API_URL}/health`)
-      .then((res) => res.json())
-      .then((data) => setHealth(`OK (${JSON.stringify(data)})`))
-      .catch(() => setHealth("Ошибка соединения с backend"));
-
-    // режимы рейтинга
+    // подгружаем режимы рейтинга
     fetch(`${API_URL}/rating/modes`)
       .then((res) => res.json())
       .then((data: RatingMode[]) => {
@@ -181,6 +182,9 @@ function App() {
       setError("Укажи имя турнира и режим");
       return;
     }
+
+    // пока scoreType / pointsLimit / setsLimit никуда не отправляем,
+    // чтобы не ломать backend. Можно будет позже добавить в TournamentCreate.
     setCreatingTournament(true);
     setError(null);
     setTournamentResult(null);
@@ -192,6 +196,9 @@ function App() {
         body: JSON.stringify({
           name: tournamentName.trim(),
           mode: tournamentMode,
+          // scoring_type: scoreType,
+          // points_limit: scoreType === "points" ? pointsLimit || null : null,
+          // sets_limit: scoreType === "sets" ? setsLimit || null : null,
         }),
       });
 
@@ -219,7 +226,7 @@ function App() {
           </Typography>
 
           <Paper sx={{ p: 3 }}>
-            <Stack spacing={2}>
+            <Stack spacing={3}>
               <TextField
                 label="Название турнира"
                 value={tournamentName}
@@ -228,6 +235,7 @@ function App() {
                 fullWidth
               />
 
+              {/* Выбор режима турнира */}
               <Box>
                 <Typography variant="subtitle1" gutterBottom>
                   Режим:
@@ -245,6 +253,94 @@ function App() {
                     />
                   ))}
                 </Stack>
+              </Box>
+
+              {/* Блок выбора счёта */}
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Счёт в турнире
+                </Typography>
+
+                <Box mb={2}>
+                  <ToggleButtonGroup
+                    exclusive
+                    value={scoreType}
+                    onChange={(_, val) => {
+                      if (val === null) return;
+                      setScoreType(val);
+                    }}
+                    size="small"
+                  >
+                    <ToggleButton value="points">По очкам</ToggleButton>
+                    <ToggleButton value="sets">По сетам</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+
+                {scoreType === "points" && (
+                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                    <Typography variant="body2">Лимит очков:</Typography>
+                    <Stack direction="row" spacing={1}>
+                      {[16, 24, 32].map((val) => (
+                        <Chip
+                          key={val}
+                          label={val}
+                          clickable
+                          onClick={() => setPointsLimit(val)}
+                          color={pointsLimit === val ? "primary" : "default"}
+                          variant={pointsLimit === val ? "filled" : "outlined"}
+                        />
+                      ))}
+                    </Stack>
+                    <TextField
+                      label="Своё значение"
+                      type="number"
+                      size="small"
+                      value={pointsLimit === "" ? "" : pointsLimit}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") {
+                          setPointsLimit("");
+                        } else {
+                          setPointsLimit(Number(v));
+                        }
+                      }}
+                      sx={{ width: 120 }}
+                    />
+                  </Stack>
+                )}
+
+                {scoreType === "sets" && (
+                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                    <Typography variant="body2">До скольки сетов:</Typography>
+                    <Stack direction="row" spacing={1}>
+                      {[1, 3, 5].map((val) => (
+                        <Chip
+                          key={val}
+                          label={val}
+                          clickable
+                          onClick={() => setSetsLimit(val)}
+                          color={setsLimit === val ? "primary" : "default"}
+                          variant={setsLimit === val ? "filled" : "outlined"}
+                        />
+                      ))}
+                    </Stack>
+                    <TextField
+                      label="Своё значение"
+                      type="number"
+                      size="small"
+                      value={setsLimit === "" ? "" : setsLimit}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") {
+                          setSetsLimit("");
+                        } else {
+                          setSetsLimit(Number(v));
+                        }
+                      }}
+                      sx={{ width: 120 }}
+                    />
+                  </Stack>
+                )}
               </Box>
 
               <Box>
@@ -430,21 +526,21 @@ function App() {
 
             <Stack direction="row" spacing={1}>
               <Button
-                color={view === "createTournament" ? "inherit" : "inherit"}
+                color="inherit"
                 variant={view === "createTournament" ? "outlined" : "text"}
                 onClick={() => setView("createTournament")}
               >
                 Создать турнир
               </Button>
               <Button
-                color={view === "rating" ? "inherit" : "inherit"}
+                color="inherit"
                 variant={view === "rating" ? "outlined" : "text"}
                 onClick={() => setView("rating")}
               >
                 Посмотреть рейтинг
               </Button>
               <Button
-                color={view === "players" ? "inherit" : "inherit"}
+                color="inherit"
                 variant={view === "players" ? "outlined" : "text"}
                 onClick={() => setView("players")}
               >
@@ -455,12 +551,6 @@ function App() {
         </AppBar>
 
         <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-          <Box mb={2}>
-            <Typography variant="body2" color="text.secondary">
-              Backend health: <b>{health}</b>
-            </Typography>
-          </Box>
-
           {error && (
             <Box mb={2}>
               <Alert severity="error">{error}</Alert>

@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  bot:
+    build: .
+    container_name: padel_bot
+    env_file:
+      - .env      # берёт переменные из .env и пробрасывает внутрь
+    restart: always
