@@ -31,10 +31,7 @@ import {
   DialogActions,
 } from "@mui/material";
 
-// Определяем URL API с fallback на локальный для разработки
-const API_URL = 
-  import.meta.env.VITE_API_URL || 
-  (import.meta.env.DEV ? "http://localhost:8000" : "https://padel-app-go6s.onrender.com");
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface PlayerRow {
   player_id: number;
@@ -237,7 +234,7 @@ function App() {
     };
   }, [participantQuery]);
 
-  const handleCreateTournament = async () => {
+  const handleOpenParticipantsDialog = () => {
     if (!tournamentName.trim() || !tournamentMode) {
       setError("Укажи имя турнира и режим");
       return;
@@ -250,6 +247,16 @@ function App() {
 
     if (scoreType === "sets" && (!setsLimit || setsLimit <= 0)) {
       setError("Укажи корректный лимит сетов");
+      return;
+    }
+
+    setError(null);
+    setParticipantsDialogOpen(true);
+  };
+
+  const handleCreateTournament = async () => {
+    if (selectedParticipants.length === 0) {
+      setError("Выбери хотя бы одного участника");
       return;
     }
 
@@ -280,8 +287,9 @@ function App() {
       const data: Tournament = await res.json();
       setTournamentResult(data);
       setTournamentName("");
+      setSelectedParticipants([]);
       setParticipantsDialogOpen(false);
-      // оставляем режим, тип счёта и участников — можно по желанию чистить
+      // оставляем режим, тип счёта — можно по желанию чистить
     } catch (e: any) {
       console.error(e);
       setError("Не удалось создать турнир");
@@ -326,11 +334,7 @@ function App() {
                       key={mode.code}
                       label={mode.name}
                       clickable
-                      onClick={() => {
-                        setTournamentMode(mode.code);
-                        // Открываем модальное окно выбора участников после выбора режима
-                        setParticipantsDialogOpen(true);
-                      }}
+                      onClick={() => setTournamentMode(mode.code)}
                       color={tournamentMode === mode.code ? "primary" : "default"}
                       variant={tournamentMode === mode.code ? "filled" : "outlined"}
                       sx={{ mb: 1 }}
@@ -441,60 +445,18 @@ function App() {
                 )}
               </Box>
 
-              {/* Информация о выбранных участниках */}
-              <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Участники турнира
-                </Typography>
-                {selectedParticipants.length === 0 ? (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Выберите режим турнира, чтобы добавить участников
-                  </Alert>
-                ) : (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Выбрано участников: {selectedParticipants.length}
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-                      {selectedParticipants.map((p) => (
-                        <Chip
-                          key={p.id}
-                          label={p.display_name}
-                          onDelete={() =>
-                            setSelectedParticipants((prev) =>
-                              prev.filter((x) => x.id !== p.id)
-                            )
-                          }
-                          size="small"
-                        />
-                      ))}
-                    </Stack>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setParticipantsDialogOpen(true)}
-                      size="small"
-                    >
-                      Изменить участников
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-
+              {/* Кнопка для выбора участников */}
               <Box>
                 <Button
                   variant="contained"
-                  onClick={handleCreateTournament}
-                  disabled={creatingTournament || selectedParticipants.length === 0 || !tournamentMode}
-                  size="large"
+                  onClick={handleOpenParticipantsDialog}
                   fullWidth
+                  size="large"
                 >
-                  {creatingTournament ? "Создаём..." : "Создать турнир"}
+                  {selectedParticipants.length > 0 
+                    ? `Выбрано участников: ${selectedParticipants.length}` 
+                    : "Выбрать участников"}
                 </Button>
-                {selectedParticipants.length === 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                    Выберите участников для создания турнира
-                  </Typography>
-                )}
               </Box>
 
               {tournamentResult && (
@@ -505,85 +467,6 @@ function App() {
               )}
             </Stack>
           </Paper>
-
-          {/* Модальное окно выбора участников */}
-          <Dialog
-            open={participantsDialogOpen}
-            onClose={() => setParticipantsDialogOpen(false)}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Выбор участников турнира</DialogTitle>
-            <DialogContent>
-              <Stack spacing={2} sx={{ mt: 1 }}>
-                <Autocomplete
-                  multiple
-                  options={participantOptions}
-                  value={selectedParticipants}
-                  loading={participantLoading}
-                  getOptionLabel={(option) => formatPlayerLabel(option)}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  filterOptions={(x) => x} // отключаем внутренний фильтр, всё делает бэк
-                  onChange={(_, value) => setSelectedParticipants(value)}
-                  onInputChange={(_, value) => {
-                    setParticipantQuery(value);
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Добавить игроков"
-                      placeholder="Начни вводить имя / @username / tg_id"
-                      helperText="Игроки берутся из зарегистрированных (ботом / ранее добавленных)"
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <li {...props} key={option.id}>
-                      {formatPlayerLabel(option)}
-                    </li>
-                  )}
-                  noOptionsText={
-                    participantQuery.trim()
-                      ? "Ничего не найдено"
-                      : "Начни вводить имя или @username"
-                  }
-                />
-
-                {selectedParticipants.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Выбрано: {selectedParticipants.length}
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {selectedParticipants.map((p) => (
-                        <Chip
-                          key={p.id}
-                          label={p.display_name}
-                          onDelete={() =>
-                            setSelectedParticipants((prev) =>
-                              prev.filter((x) => x.id !== p.id)
-                            )
-                          }
-                          size="small"
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setParticipantsDialogOpen(false)}>
-                Отмена
-              </Button>
-              <Button
-                onClick={() => setParticipantsDialogOpen(false)}
-                variant="contained"
-                disabled={selectedParticipants.length === 0}
-              >
-                Готово ({selectedParticipants.length})
-              </Button>
-            </DialogActions>
-          </Dialog>
         </Box>
       );
     }
@@ -838,6 +721,110 @@ function App() {
 
           {renderContent()}
         </Container>
+
+        {/* Модальное окно выбора участников */}
+        <Dialog
+          open={participantsDialogOpen}
+          onClose={() => setParticipantsDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Выбор участников турнира
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                <Stack spacing={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Турнир:</strong> {tournamentName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Режим:</strong> {ratingModes.find(m => m.code === tournamentMode)?.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Счёт:</strong> {scoreType === "points" 
+                      ? `По очкам (лимит: ${pointsLimit})` 
+                      : `По сетам (до ${setsLimit} сетов)`}
+                  </Typography>
+                </Stack>
+              </Paper>
+
+              <Autocomplete
+                multiple
+                options={participantOptions}
+                value={selectedParticipants}
+                loading={participantLoading}
+                getOptionLabel={(option) => formatPlayerLabel(option)}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(x) => x} // отключаем внутренний фильтр, всё делает бэк
+                onChange={(_, value) => setSelectedParticipants(value)}
+                onInputChange={(_, value) => {
+                  setParticipantQuery(value);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Добавить игроков"
+                    placeholder="Начни вводить имя / @username / tg_id"
+                    helperText="Игроки берутся из зарегистрированных (ботом / ранее добавленных)"
+                    fullWidth
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    {formatPlayerLabel(option)}
+                  </li>
+                )}
+                noOptionsText={
+                  participantQuery.trim()
+                    ? "Ничего не найдено"
+                    : "Начни вводить имя или @username"
+                }
+              />
+
+              {selectedParticipants.length > 0 && (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Выбрано: {selectedParticipants.length}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {selectedParticipants.map((p) => (
+                      <Chip
+                        key={p.id}
+                        label={p.display_name}
+                        onDelete={() =>
+                          setSelectedParticipants((prev) =>
+                            prev.filter((x) => x.id !== p.id)
+                          )
+                        }
+                        size="small"
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {error && (
+                <Alert severity="error" onClose={() => setError(null)}>
+                  {error}
+                </Alert>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setParticipantsDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleCreateTournament}
+              disabled={creatingTournament || selectedParticipants.length === 0}
+            >
+              {creatingTournament ? "Создаём..." : "Создать турнир"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );
