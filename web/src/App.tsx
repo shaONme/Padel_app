@@ -24,6 +24,7 @@ import {
   TableBody,
   ToggleButtonGroup,
   ToggleButton,
+  Autocomplete,
 } from "@mui/material";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -66,6 +67,11 @@ interface Tournament {
   name: string;
   mode: RatingModeCode;
   status: string;
+  created_at: string;
+  scoring_type: "points" | "sets";
+  points_limit: number | null;
+  sets_limit: number | null;
+  participants: number[];
 }
 
 interface Player {
@@ -113,12 +119,18 @@ function App() {
   const [pointsLimit, setPointsLimit] = useState<number | "">(16);
   const [setsLimit, setSetsLimit] = useState<number | "">(1);
 
-  // просмотр игроков
+  // участники турнира
+  const [participantQuery, setParticipantQuery] = useState("");
+  const [participantOptions, setParticipantOptions] = useState<Player[]>([]);
+  const [participantLoading, setParticipantLoading] = useState(false);
+  const [selectedParticipants, setSelectedParticipants] = useState<Player[]>([]);
+
+  // просмотр игроков (общий список)
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
+  // подгружаем режимы рейтинга при старте
   useEffect(() => {
-    // подгружаем режимы рейтинга
     fetch(`${API_URL}/rating/modes`)
       .then((res) => res.json())
       .then((data: RatingMode[]) => {
@@ -150,7 +162,7 @@ function App() {
     }
   };
 
-  // подгрузка списка игроков
+  // подгрузка списка игроков для экрана "Игроки"
   const loadPlayers = async () => {
     setLoadingPlayers(true);
     setError(null);
@@ -177,14 +189,64 @@ function App() {
     }
   }, [view]);
 
+  // поиск игроков для автодополнения участников
+  useEffect(() => {
+    const q = participantQuery.trim();
+    if (!q) {
+      setParticipantOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+    setParticipantLoading(true);
+
+    fetch(`${API_URL}/players/search?q=${encodeURIComponent(q)}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data: Player[]) => {
+        if (!cancelled) {
+          setParticipantOptions(data);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) {
+          setParticipantOptions([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setParticipantLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [participantQuery]);
+
   const handleCreateTournament = async () => {
     if (!tournamentName.trim() || !tournamentMode) {
       setError("Укажи имя турнира и режим");
       return;
     }
 
-    // пока scoreType / pointsLimit / setsLimit никуда не отправляем,
-    // чтобы не ломать backend. Можно будет позже добавить в TournamentCreate.
+    if (scoreType === "points" && (!pointsLimit || pointsLimit <= 0)) {
+      setError("Укажи корректный лимит очков");
+      return;
+    }
+
+    if (scoreType === "sets" && (!setsLimit || setsLimit <= 0)) {
+      setError("Укажи корректный лимит сетов");
+      return;
+    }
+
+    const participantIds = selectedParticipants.map((p) => p.id);
+
     setCreatingTournament(true);
     setError(null);
     setTournamentResult(null);
@@ -199,10 +261,9 @@ function App() {
           scoring_type: scoreType,                                // "points" | "sets"
           points_limit: scoreType === "points" ? pointsLimit || null : null,
           sets_limit: scoreType === "sets" ? setsLimit || null : null,
-          participants: [],                                       // позже сюда добавим список ID игроков
+          participants: participantIds,                           // список ID игроков
         }),
       });
-
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -211,12 +272,20 @@ function App() {
       const data: Tournament = await res.json();
       setTournamentResult(data);
       setTournamentName("");
+      // оставляем режим, тип счёта и участников — можно по желанию чистить
     } catch (e: any) {
       console.error(e);
       setError("Не удалось создать турнир");
     } finally {
       setCreatingTournament(false);
     }
+  };
+
+  const formatPlayerLabel = (p: Player) => {
+    const parts = [p.display_name];
+    if (p.username) parts.push(`@${p.username}`);
+    parts.push(`tg:${p.tg_id}`);
+    return parts.join(" · ");
   };
 
   const renderContent = () => {
@@ -342,6 +411,67 @@ function App() {
                       sx={{ width: 120 }}
                     />
                   </Stack>
+                )}
+              </Box>
+
+              {/* Выбор участников турнира */}
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Участники турнира
+                </Typography>
+
+                <Autocomplete
+                  multiple
+                  options={participantOptions}
+                  value={selectedParticipants}
+                  loading={participantLoading}
+                  getOptionLabel={(option) => formatPlayerLabel(option)}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  filterOptions={(x) => x} // отключаем внутренний фильтр, всё делает бэк
+                  onChange={(_, value) => setSelectedParticipants(value)}
+                  onInputChange={(_, value) => {
+                    setParticipantQuery(value);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Добавить игроков"
+                      placeholder="Начни вводить имя / @username / tg_id"
+                      helperText="Игроки берутся из зарегистрированных (ботом / ранее добавленных)"
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id}>
+                      {formatPlayerLabel(option)}
+                    </li>
+                  )}
+                  noOptionsText={
+                    participantQuery.trim()
+                      ? "Ничего не найдено"
+                      : "Начни вводить имя или @username"
+                  }
+                />
+
+                {selectedParticipants.length > 0 && (
+                  <Box mt={1}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Выбрано: {selectedParticipants.length}
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {selectedParticipants.map((p) => (
+                        <Chip
+                          key={p.id}
+                          label={p.display_name}
+                          onDelete={() =>
+                            setSelectedParticipants((prev) =>
+                              prev.filter((x) => x.id !== p.id)
+                            )
+                          }
+                          size="small"
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
                 )}
               </Box>
 

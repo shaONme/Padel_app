@@ -12,7 +12,7 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.orm import relationship
-
+from sqlalchemy.sql import func
 from .db import Base
 
 
@@ -31,7 +31,7 @@ class RatingModeEnum(str, Enum):
     MX_MIX = "mexicano_mix"
     KING = "king_of_court"
 
-class ScoringTypeEnum(str, enum.Enum):
+class ScoringTypeEnum(str, Enum):
     POINTS = "points"
     SETS = "sets"
 
@@ -90,12 +90,12 @@ class Tournament(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    mode = Column(SQLEnum(RatingModeEnum, name="ratingmodeenum"), nullable=False)
+    mode = Column(SAEnum(RatingModeEnum, name="ratingmodeenum"), nullable=False)
     status = Column(String, default="draft")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    scoring_type = Column(SQLEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
+    scoring_type = Column(SAEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
     points_limit = Column(Integer, nullable=True)
     sets_limit = Column(Integer, nullable=True)
 
@@ -149,7 +149,7 @@ class TournamentMatch(Base):
     player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
 
-    score_type = Column(SQLEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
+    score_type = Column(SAEnum(ScoringTypeEnum, name="scoringtypeenum"), nullable=False)
     points1 = Column(Integer, nullable=True)
     points2 = Column(Integer, nullable=True)
     sets1 = Column(Integer, nullable=True)

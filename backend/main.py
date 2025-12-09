@@ -16,7 +16,8 @@ from .models import (
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
-
+from fastapi import Query
+from sqlalchemy import or_, String, cast
 
 # создаём таблицы в БД (players и т.д.)
 Base.metadata.create_all(bind=engine)
@@ -213,6 +214,31 @@ def list_players(db: Session = Depends(get_db)):
         .all()
     )
     return players
+
+@app.get("/players/search", response_model=List[PlayerOut])
+def search_players(
+    q: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """
+    Поиск игроков по имени, username или tg_id (частичное совпадение).
+    """
+    pattern = f"%{q}%"
+    players = (
+        db.query(Player)
+        .filter(
+            or_(
+                Player.display_name.ilike(pattern),
+                Player.username.ilike(pattern),
+                cast(Player.tg_id, String).ilike(pattern),
+            )
+        )
+        .order_by(Player.display_name.asc())
+        .limit(20)
+        .all()
+    )
+    return players
+
 
 @app.get("/rating/modes", response_model=List[RatingModeOut])
 def list_rating_modes():
