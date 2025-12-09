@@ -25,9 +25,16 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 
-const API_URL = import.meta.env.VITE_API_URL as string;
+// Определяем URL API с fallback на локальный для разработки
+const API_URL = 
+  import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? "http://localhost:8000" : "https://padel-app-go6s.onrender.com");
 
 interface PlayerRow {
   player_id: number;
@@ -124,6 +131,7 @@ function App() {
   const [participantOptions, setParticipantOptions] = useState<Player[]>([]);
   const [participantLoading, setParticipantLoading] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<Player[]>([]);
+  const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
 
   // просмотр игроков (общий список)
   const [players, setPlayers] = useState<Player[]>([]);
@@ -272,6 +280,7 @@ function App() {
       const data: Tournament = await res.json();
       setTournamentResult(data);
       setTournamentName("");
+      setParticipantsDialogOpen(false);
       // оставляем режим, тип счёта и участников — можно по желанию чистить
     } catch (e: any) {
       console.error(e);
@@ -317,7 +326,11 @@ function App() {
                       key={mode.code}
                       label={mode.name}
                       clickable
-                      onClick={() => setTournamentMode(mode.code)}
+                      onClick={() => {
+                        setTournamentMode(mode.code);
+                        // Открываем модальное окно выбора участников после выбора режима
+                        setParticipantsDialogOpen(true);
+                      }}
                       color={tournamentMode === mode.code ? "primary" : "default"}
                       variant={tournamentMode === mode.code ? "filled" : "outlined"}
                       sx={{ mb: 1 }}
@@ -428,12 +441,81 @@ function App() {
                 )}
               </Box>
 
-              {/* Выбор участников турнира */}
+              {/* Информация о выбранных участниках */}
               <Box>
                 <Typography variant="subtitle1" gutterBottom>
                   Участники турнира
                 </Typography>
+                {selectedParticipants.length === 0 ? (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Выберите режим турнира, чтобы добавить участников
+                  </Alert>
+                ) : (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Выбрано участников: {selectedParticipants.length}
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                      {selectedParticipants.map((p) => (
+                        <Chip
+                          key={p.id}
+                          label={p.display_name}
+                          onDelete={() =>
+                            setSelectedParticipants((prev) =>
+                              prev.filter((x) => x.id !== p.id)
+                            )
+                          }
+                          size="small"
+                        />
+                      ))}
+                    </Stack>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setParticipantsDialogOpen(true)}
+                      size="small"
+                    >
+                      Изменить участников
+                    </Button>
+                  </Box>
+                )}
+              </Box>
 
+              <Box>
+                <Button
+                  variant="contained"
+                  onClick={handleCreateTournament}
+                  disabled={creatingTournament || selectedParticipants.length === 0 || !tournamentMode}
+                  size="large"
+                  fullWidth
+                >
+                  {creatingTournament ? "Создаём..." : "Создать турнир"}
+                </Button>
+                {selectedParticipants.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                    Выберите участников для создания турнира
+                  </Typography>
+                )}
+              </Box>
+
+              {tournamentResult && (
+                <Alert severity="success">
+                  Турнир создан: #{tournamentResult.id} — {tournamentResult.name} (
+                  {tournamentResult.mode})
+                </Alert>
+              )}
+            </Stack>
+          </Paper>
+
+          {/* Модальное окно выбора участников */}
+          <Dialog
+            open={participantsDialogOpen}
+            onClose={() => setParticipantsDialogOpen(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>Выбор участников турнира</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 1 }}>
                 <Autocomplete
                   multiple
                   options={participantOptions}
@@ -467,7 +549,7 @@ function App() {
                 />
 
                 {selectedParticipants.length > 0 && (
-                  <Box mt={1}>
+                  <Box>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Выбрано: {selectedParticipants.length}
                     </Typography>
@@ -487,26 +569,21 @@ function App() {
                     </Stack>
                   </Box>
                 )}
-              </Box>
-
-              <Box>
-                <Button
-                  variant="contained"
-                  onClick={handleCreateTournament}
-                  disabled={creatingTournament}
-                >
-                  {creatingTournament ? "Создаём..." : "Создать турнир"}
-                </Button>
-              </Box>
-
-              {tournamentResult && (
-                <Alert severity="success">
-                  Турнир создан: #{tournamentResult.id} — {tournamentResult.name} (
-                  {tournamentResult.mode})
-                </Alert>
-              )}
-            </Stack>
-          </Paper>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setParticipantsDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button
+                onClick={() => setParticipantsDialogOpen(false)}
+                variant="contained"
+                disabled={selectedParticipants.length === 0}
+              >
+                Готово ({selectedParticipants.length})
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       );
     }
