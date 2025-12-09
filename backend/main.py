@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from .db import Base, engine, get_db
 from .models import (
@@ -107,6 +107,16 @@ class TournamentCreate(BaseModel):
     points_limit: Optional[int] = None
     sets_limit: Optional[int] = None
     participants: List[int] = []  # список ID игроков
+    
+    @field_validator('participants')
+    @classmethod
+    def validate_participants(cls, v):
+        if not isinstance(v, list):
+            raise ValueError('participants должен быть массивом (списком)')
+        for item in v:
+            if not isinstance(item, int):
+                raise ValueError(f'participants должен содержать только целые числа (ID игроков), получено: {type(item).__name__}')
+        return v
 
 
 class TournamentOut(BaseModel):
@@ -288,75 +298,83 @@ def get_rating_table(mode: RatingModeEnum, db: Session = Depends(get_db)):
 
 @app.post("/tournaments", response_model=TournamentOut)
 def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
-    # базовая валидация лимитов
-    if payload.scoring_type == ScoringTypeEnum.POINTS:
-        if payload.points_limit is None or payload.points_limit <= 0:
-            raise HTTPException(status_code=400, detail="Нужно указать положительный points_limit")
-    if payload.scoring_type == ScoringTypeEnum.SETS:
-        if payload.sets_limit is None or payload.sets_limit <= 0:
-            raise HTTPException(status_code=400, detail="Нужно указать положительный sets_limit")
-
-    tournament = Tournament(
-        name=payload.name,
-        mode=payload.mode,
-        status="draft",
-        scoring_type=payload.scoring_type,
-        points_limit=payload.points_limit if payload.scoring_type == ScoringTypeEnum.POINTS else None,
-        sets_limit=payload.sets_limit if payload.scoring_type == ScoringTypeEnum.SETS else None,
-    )
-    db.add(tournament)
-    db.flush()  # получаем tournament.id без commit
-
-    # создаём связки участников, если передали
-    participant_ids: List[int] = payload.participants or []
-    if participant_ids:
-        # проверяем, что все игроки существуют
-        existing_players = db.query(Player).filter(Player.id.in_(participant_ids)).all()
-        existing_ids = {p.id for p in existing_players}
-        missing_ids = set(participant_ids) - existing_ids
-        if missing_ids:
-            db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail=f"Игроки с ID {sorted(missing_ids)} не найдены в базе данных"
-            )
-        
-        # проверяем на дубликаты
-        if len(participant_ids) != len(set(participant_ids)):
-            db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Обнаружены дублирующиеся ID игроков"
-            )
-        
-        for pid in participant_ids:
-            tp = TournamentPlayer(
-                tournament_id=tournament.id,
-                player_id=pid,
-            )
-            db.add(tp)
-
     try:
+        # базовая валидация лимитов
+        if payload.scoring_type == ScoringTypeEnum.POINTS:
+            if payload.points_limit is None or payload.points_limit <= 0:
+                raise HTTPException(status_code=400, detail="Нужно указать положительный points_limit")
+        if payload.scoring_type == ScoringTypeEnum.SETS:
+            if payload.sets_limit is None or payload.sets_limit <= 0:
+                raise HTTPException(status_code=400, detail="Нужно указать положительный sets_limit")
+
+        tournament = Tournament(
+            name=payload.name,
+            mode=payload.mode,
+            status="draft",
+            scoring_type=payload.scoring_type,
+            points_limit=payload.points_limit if payload.scoring_type == ScoringTypeEnum.POINTS else None,
+            sets_limit=payload.sets_limit if payload.scoring_type == ScoringTypeEnum.SETS else None,
+        )
+        db.add(tournament)
+        db.flush()  # получаем tournament.id без commit
+
+        # создаём связки участников, если передали
+        participant_ids: List[int] = payload.participants or []
+        if participant_ids:
+            # проверяем, что все игроки существуют
+            existing_players = db.query(Player).filter(Player.id.in_(participant_ids)).all()
+            existing_ids = {p.id for p in existing_players}
+            missing_ids = set(participant_ids) - existing_ids
+            if missing_ids:
+                db.rollback()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Игроки с ID {sorted(missing_ids)} не найдены в базе данных"
+                )
+            
+            # проверяем на дубликаты
+            if len(participant_ids) != len(set(participant_ids)):
+                db.rollback()
+                raise HTTPException(
+                    status_code=400,
+                    detail="Обнаружены дублирующиеся ID игроков"
+                )
+            
+            for pid in participant_ids:
+                tp = TournamentPlayer(
+                    tournament_id=tournament.id,
+                    player_id=pid,
+                )
+                db.add(tp)
+
         db.commit()
         db.refresh(tournament)
+        
+        # явно загружаем участников из БД, так как связь может не загрузиться автоматически
+        participants_list = db.query(TournamentPlayer).filter(
+            TournamentPlayer.tournament_id == tournament.id
+        ).all()
+        participants_ids = [tp.player_id for tp in participants_list]
+
+        return TournamentOut(
+            id=tournament.id,
+            name=tournament.name,
+            mode=tournament.mode,
+            status=tournament.status,
+            created_at=tournament.created_at,
+            scoring_type=tournament.scoring_type,
+            points_limit=tournament.points_limit,
+            sets_limit=tournament.sets_limit,
+            participants=participants_ids,
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении турнира: {str(e)}")
-
-    # собираем список id участников для ответа
-    participants_ids = [tp.player_id for tp in tournament.participants]
-
-    return TournamentOut(
-        id=tournament.id,
-        name=tournament.name,
-        mode=tournament.mode,
-        status=tournament.status,
-        created_at=tournament.created_at,
-        scoring_type=tournament.scoring_type,
-        points_limit=tournament.points_limit,
-        sets_limit=tournament.sets_limit,
-        participants=participants_ids,
-    )
+        import traceback
+        error_detail = f"Ошибка при создании турнира: {str(e)}\n{traceback.format_exc()}"
+        print(f"ERROR in /tournaments: {error_detail}")  # для логов
+        raise HTTPException(status_code=500, detail=f"Ошибка при создании турнира: {str(e)}")
 
 @app.post("/matches", response_model=MatchOut)
 def create_match(payload: MatchCreate, db: Session = Depends(get_db)):

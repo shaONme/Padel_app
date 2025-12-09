@@ -94,7 +94,7 @@ const theme = createTheme({
   palette: {
     mode: "dark",
     primary: {
-      main: "#ff9800", // оранжевый для заголовков и акцентов
+      main: "#d97706", // тусклый оранжевый для заголовков и акцентов
     },
     secondary: {
       main: "#b0b0b0", // светло-серый для кнопок
@@ -118,10 +118,10 @@ const theme = createTheme({
             backgroundColor: "#c0c0c0",
           },
           "&.MuiButton-containedPrimary": {
-            backgroundColor: "#ff9800",
+            backgroundColor: "#d97706",
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: "#fb8c00",
+              backgroundColor: "#c46900",
             },
           },
         },
@@ -150,17 +150,17 @@ const theme = createTheme({
               borderColor: "#555555",
             },
             "&:hover fieldset": {
-              borderColor: "#ff9800",
+              borderColor: "#d97706",
             },
             "&.Mui-focused fieldset": {
-              borderColor: "#ff9800",
+              borderColor: "#d97706",
             },
           },
           "& .MuiInputLabel-root": {
             color: "#b0b0b0",
           },
           "& .MuiInputLabel-root.Mui-focused": {
-            color: "#ff9800",
+            color: "#d97706",
           },
         },
       },
@@ -175,7 +175,7 @@ const theme = createTheme({
           },
         },
         colorPrimary: {
-          backgroundColor: "#ff9800",
+          backgroundColor: "#d97706",
           color: "#ffffff",
         },
       },
@@ -195,7 +195,7 @@ const theme = createTheme({
         },
         head: {
           backgroundColor: "#2d2d2d",
-          color: "#ff9800",
+          color: "#d97706",
           fontWeight: 600,
         },
       },
@@ -241,10 +241,10 @@ const theme = createTheme({
           color: "#b0b0b0",
           borderColor: "#555555",
           "&.Mui-selected": {
-            backgroundColor: "#ff9800",
+            backgroundColor: "#d97706",
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: "#fb8c00",
+              backgroundColor: "#c46900",
             },
           },
           "&:hover": {
@@ -487,7 +487,7 @@ function App() {
     if (view === "createTournament") {
       return (
         <Box mt={3}>
-          <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: "#d97706", fontWeight: 600 }}>
             Создать турнир
           </Typography>
 
@@ -503,7 +503,7 @@ function App() {
 
               {/* Выбор режима турнира */}
               <Box>
-                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#ff9800" }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#d97706" }}>
                   Режим:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -523,7 +523,7 @@ function App() {
 
               {/* Блок выбора счёта */}
               <Box>
-            <Typography variant="subtitle1" gutterBottom sx={{ color: "#ff9800" }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ color: "#d97706" }}>
               Счёт в турнире
             </Typography>
 
@@ -652,12 +652,12 @@ function App() {
     if (view === "rating") {
       return (
         <Box mt={3}>
-          <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: "#d97706", fontWeight: 600 }}>
             Рейтинг игроков
           </Typography>
 
           <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#ff9800" }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500, color: "#d97706" }}>
               Режим:
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -755,7 +755,7 @@ function App() {
     // view === "players"
     return (
       <Box mt={3}>
-        <Typography variant="h5" gutterBottom sx={{ color: "#ff9800", fontWeight: 600 }}>
+        <Typography variant="h5" gutterBottom sx={{ color: "#d97706", fontWeight: 600 }}>
           Игроки
         </Typography>
 
@@ -829,7 +829,7 @@ function App() {
       <Box sx={{ flexGrow: 1 }}>
         <AppBar position="static" elevation={1}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1, color: "#ff9800", fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ flexGrow: 1, color: "#d97706", fontWeight: 600 }}>
               Padel Admin
             </Typography>
 
@@ -925,7 +925,7 @@ function App() {
           maxWidth="md"
           fullWidth
         >
-          <DialogTitle sx={{ color: "#ff9800", fontWeight: 600 }}>
+          <DialogTitle sx={{ color: "#d97706", fontWeight: 600 }}>
             Выбор участников турнира
           </DialogTitle>
           <DialogContent>
