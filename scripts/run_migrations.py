@@ -7,10 +7,17 @@ import os
 import sys
 
 # Добавляем корневую директорию в путь
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
-from alembic.config import Config
-from alembic import command
+try:
+    from alembic.config import Config
+    from alembic import command
+except ImportError:
+    print("ERROR: Alembic is not installed.")
+    print("Please install dependencies:")
+    print("  pip install -r requirements.txt")
+    sys.exit(1)
 
 def main():
     # Проверяем DATABASE_URL
