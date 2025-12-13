@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 SQLAlchemy
+alembic
 python-dotenv
 psycopg2-binary
 python-telegram-bot[ext]==21.6

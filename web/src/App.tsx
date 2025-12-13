@@ -26,6 +26,7 @@ import {
   ToggleButton,
 } from "@mui/material";
 import ParticipantPicker from "./ParticipantPicker";
+import ChatSelector from "./ChatSelector";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -84,7 +85,7 @@ interface Player {
   rating_letter: string | null;
 }
 
-type View = "rating" | "createTournament" | "players" | "selectParticipants";
+type View = "rating" | "createTournament" | "players" | "selectParticipants" | "selectChat";
 
 const theme = createTheme({
   palette: {
@@ -280,6 +281,16 @@ function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
+  // Управление группами
+  const [activeChatId, setActiveChatId] = useState<number | null>(() => {
+    const stored = localStorage.getItem("activeChatId");
+    return stored ? parseInt(stored, 10) : null;
+  });
+  const [userTgId, setUserTgId] = useState<number | null>(() => {
+    const stored = localStorage.getItem("userTgId");
+    return stored ? parseInt(stored, 10) : null;
+  });
+
   // подгружаем режимы рейтинга при старте
   useEffect(() => {
     fetch(`${API_URL}/rating/modes`)
@@ -361,8 +372,19 @@ function App() {
   };
 
   const handleCreateTournament = async () => {
+    if (!activeChatId) {
+      setError("Выберите группу для создания турнира");
+      setView("selectChat");
+      return;
+    }
+
     if (selectedParticipants.length === 0) {
       setError("Выбери хотя бы одного участника");
+      return;
+    }
+
+    if (!userTgId) {
+      setError("Требуется авторизация. Укажите ваш Telegram ID.");
       return;
     }
 
@@ -388,9 +410,12 @@ function App() {
 
       console.log("Отправка запроса на создание турнира:", requestBody);
 
-      const res = await fetch(`${API_URL}/tournaments`, {
+      const res = await fetch(`${API_URL}/tournaments?chat_id=${activeChatId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Tg-Id": userTgId.toString(),
+        },
         body: JSON.stringify(requestBody),
       });
 
@@ -834,9 +859,19 @@ function App() {
         {view !== "selectParticipants" && (
           <AppBar position="static" elevation={1}>
             <Toolbar>
-              <Typography variant="h6" sx={{ flexGrow: 1, color: "#d97706", fontWeight: 600 }}>
-                Padel Admin
-              </Typography>
+            <Typography variant="h6" sx={{ flexGrow: 1, color: "#d97706", fontWeight: 600 }}>
+              Padel Admin
+            </Typography>
+            {activeChatId && (
+              <Button
+                variant="text"
+                onClick={handleChangeChat}
+                size="small"
+                sx={{ mr: 2, color: "#b0b0b0" }}
+              >
+                Сменить группу
+              </Button>
+            )}
 
               <Stack 
                 direction="row" 

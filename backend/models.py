@@ -5,11 +5,14 @@ from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
+    BigInteger,
     String,
+    Text,
     Float,
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -57,6 +60,8 @@ class PlayerModeStats(Base):
     id = Column(Integer, primary_key=True, index=True)
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     mode = Column(SAEnum(RatingModeEnum), nullable=False, index=True)
+    # Привязка к группе для статистики по группам
+    chat_id = Column(Integer, ForeignKey("tg_chats.id", ondelete="CASCADE"), nullable=True, index=True)
 
     # По играм
     games_played = Column(Integer, default=0)
@@ -99,6 +104,9 @@ class Tournament(Base):
     points_limit = Column(Integer, nullable=True)
     sets_limit = Column(Integer, nullable=True)
 
+    # Привязка к группе (nullable для обратной совместимости)
+    chat_id = Column(Integer, ForeignKey("tg_chats.id", ondelete="CASCADE"), nullable=True, index=True)
+
     participants = relationship(
         "TournamentPlayer",
         back_populates="tournament",
@@ -109,6 +117,7 @@ class Tournament(Base):
         back_populates="tournament",
         cascade="all, delete-orphan",
     )
+    chat = relationship("TelegramChat", back_populates="tournaments")
 
 
 # 🔹 НОВАЯ таблица участников турнира
@@ -160,3 +169,55 @@ class TournamentMatch(Base):
     tournament = relationship("Tournament", back_populates="matches")
     player1 = relationship("Player", foreign_keys=[player1_id])
     player2 = relationship("Player", foreign_keys=[player2_id])
+
+
+# 🔹 Telegram Chat модель
+class TelegramChat(Base):
+    __tablename__ = "tg_chats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tg_chat_id = Column(BigInteger, unique=True, nullable=False, index=True)
+    title = Column(Text, nullable=True)
+    type = Column(String, nullable=True)  # group, supergroup, channel
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    admins = relationship("ChatAdmin", back_populates="chat", cascade="all, delete-orphan")
+    members = relationship("ChatMember", back_populates="chat", cascade="all, delete-orphan")
+    tournaments = relationship("Tournament", back_populates="chat", cascade="all, delete-orphan")
+
+
+# 🔹 Chat Admins (многие-ко-многим)
+class ChatAdmin(Base):
+    __tablename__ = "chat_admins"
+
+    chat_id = Column(Integer, ForeignKey("tg_chats.id", ondelete="CASCADE"), primary_key=True)
+    admin_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True)
+    role = Column(String, nullable=True)  # owner, admin
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("chat_id", "admin_player_id", name="uq_chat_admins"),
+    )
+
+    chat = relationship("TelegramChat", back_populates="admins")
+    admin = relationship("Player")
+
+
+# 🔹 Chat Members (многие-ко-многим)
+class ChatMember(Base):
+    __tablename__ = "chat_members"
+
+    chat_id = Column(Integer, ForeignKey("tg_chats.id", ondelete="CASCADE"), primary_key=True)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True)
+    status = Column(String, nullable=False, default="active")  # active, left, kicked
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("chat_id", "player_id", name="uq_chat_members"),
+    )
+
+    chat = relationship("TelegramChat", back_populates="members")
+    player = relationship("Player")

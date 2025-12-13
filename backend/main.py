@@ -12,17 +12,27 @@ from .models import (
     ScoringTypeEnum,
     TournamentPlayer,
     TournamentMatch,
+    TelegramChat,
+    ChatAdmin,
+    ChatMember,
 )
+from .auth import get_current_user, check_chat_admin_access, get_user_chats, get_chat_id_from_request
+from .bot_api import router as bot_router
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
 from fastapi import Query
 from sqlalchemy import or_, String, cast
 
-# создаём таблицы в БД (players и т.д.)
-Base.metadata.create_all(bind=engine)
+# ВАЖНО: Не используем create_all в продакшене!
+# Таблицы создаются через Alembic миграции.
+# Раскомментируйте следующую строку только для локальной разработки:
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Padel Backend API")
+
+# Подключаем роутер для бота
+app.include_router(bot_router)
 
 # Разрешаем запросы с фронта (Vite по умолчанию 5173 порт)
 origins = [
@@ -177,10 +187,88 @@ MODE_LABELS = {
 }
 
 
+# ==================== Pydantic модели для чатов ====================
+
+class ChatOut(BaseModel):
+    id: int
+    tg_chat_id: int
+    title: Optional[str]
+    type: Optional[str]
+    role: Optional[str] = None  # admin, member (вычисляется для текущего пользователя)
+
+    class Config:
+        orm_mode = True
+
+
+# ==================== Health check ====================
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ==================== Эндпоинты для чатов ====================
+
+@app.get("/chats", response_model=List[ChatOut])
+def list_chats(
+    user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    admin_only: bool = Query(False, description="Показывать только чаты, где пользователь админ")
+):
+    """
+    Возвращает список чатов для текущего пользователя.
+    По умолчанию показывает чаты, где пользователь админ или участник.
+    Если admin_only=True, показывает только чаты, где пользователь админ.
+    """
+    chats = get_user_chats(user, db, admin_only=admin_only)
+    
+    result = []
+    for chat in chats:
+        # Определяем роль пользователя
+        is_admin = db.query(ChatAdmin).filter(
+            ChatAdmin.chat_id == chat.id,
+            ChatAdmin.admin_player_id == user.id
+        ).first() is not None
+        
+        role = "admin" if is_admin else "member"
+        
+        result.append(ChatOut(
+            id=chat.id,
+            tg_chat_id=chat.tg_chat_id,
+            title=chat.title,
+            type=chat.type,
+            role=role
+        ))
+    
+    return result
+
+
+@app.get("/chats/{chat_id}", response_model=ChatOut)
+def get_chat(
+    chat_id: int,
+    user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Получает информацию о конкретном чате.
+    Пользователь должен быть админом или участником чата.
+    """
+    chat = check_chat_admin_access(chat_id, user, db, allow_member=True)
+    
+    is_admin = db.query(ChatAdmin).filter(
+        ChatAdmin.chat_id == chat.id,
+        ChatAdmin.admin_player_id == user.id
+    ).first() is not None
+    
+    role = "admin" if is_admin else "member"
+    
+    return ChatOut(
+        id=chat.id,
+        tg_chat_id=chat.tg_chat_id,
+        title=chat.title,
+        type=chat.type,
+        role=role
+    )
 
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -228,25 +316,29 @@ def list_players(db: Session = Depends(get_db)):
 @app.get("/players/search", response_model=List[PlayerOut])
 def search_players(
     q: str = Query(..., min_length=1),
+    chat_id: Optional[int] = Query(None, description="ID чата для фильтрации поиска"),
     db: Session = Depends(get_db),
 ):
     """
     Поиск игроков по имени, username или tg_id (частичное совпадение).
+    Если указан chat_id, ищет только среди участников этого чата.
     """
     pattern = f"%{q}%"
-    players = (
-        db.query(Player)
-        .filter(
-            or_(
-                Player.display_name.ilike(pattern),
-                Player.username.ilike(pattern),
-                cast(Player.tg_id, String).ilike(pattern),
-            )
+    query = db.query(Player).filter(
+        or_(
+            Player.display_name.ilike(pattern),
+            Player.username.ilike(pattern),
+            cast(Player.tg_id, String).ilike(pattern),
         )
-        .order_by(Player.display_name.asc())
-        .limit(20)
-        .all()
     )
+    
+    if chat_id is not None:
+        query = query.join(ChatMember, ChatMember.player_id == Player.id).filter(
+            ChatMember.chat_id == chat_id,
+            ChatMember.status == "active"
+        )
+    
+    players = query.order_by(Player.display_name.asc()).limit(20).all()
     return players
 
 
@@ -258,9 +350,14 @@ def list_rating_modes():
     ]
 
 @app.get("/rating/{mode}", response_model=List[PlayerRatingRow])
-def get_rating_table(mode: RatingModeEnum, db: Session = Depends(get_db)):
+def get_rating_table(
+    mode: RatingModeEnum,
+    chat_id: Optional[int] = Query(None, description="ID чата для фильтрации рейтинга"),
+    db: Session = Depends(get_db),
+):
     """
     Таблица рейтинга для выбранного режима.
+    Если указан chat_id, показывает рейтинг только для этого чата.
     Сейчас сортируем по current_rating и delta_points.
     Позже сюда можно вставить твой реальный алгоритм расчёта и буквы рейтинга.
     """
@@ -269,8 +366,13 @@ def get_rating_table(mode: RatingModeEnum, db: Session = Depends(get_db)):
         db.query(Player, PlayerModeStats)
         .join(PlayerModeStats, PlayerModeStats.player_id == Player.id)
         .filter(PlayerModeStats.mode == mode)
-        .order_by(Player.current_rating.desc(), PlayerModeStats.delta_points.desc())
     )
+    
+    # Фильтр по chat_id, если указан
+    if chat_id is not None:
+        q = q.filter(PlayerModeStats.chat_id == chat_id)
+    
+    q = q.order_by(Player.current_rating.desc(), PlayerModeStats.delta_points.desc())
 
     rows: List[PlayerRatingRow] = []
     for player, stats in q.all():
@@ -296,9 +398,93 @@ def get_rating_table(mode: RatingModeEnum, db: Session = Depends(get_db)):
         )
     return rows
 
+
+# ==================== Эндпоинты для чатов ====================
+
+class ChatOut(BaseModel):
+    id: int
+    tg_chat_id: int
+    title: Optional[str]
+    type: Optional[str]
+    role: Optional[str] = None  # admin, member (вычисляется для текущего пользователя)
+
+    class Config:
+        orm_mode = True
+
+
+@app.get("/chats", response_model=List[ChatOut])
+def list_chats(
+    user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    admin_only: bool = Query(False, description="Показывать только чаты, где пользователь админ")
+):
+    """
+    Возвращает список чатов для текущего пользователя.
+    По умолчанию показывает чаты, где пользователь админ или участник.
+    Если admin_only=True, показывает только чаты, где пользователь админ.
+    """
+    chats = get_user_chats(user, db, admin_only=admin_only)
+    
+    result = []
+    for chat in chats:
+        # Определяем роль пользователя
+        is_admin = db.query(ChatAdmin).filter(
+            ChatAdmin.chat_id == chat.id,
+            ChatAdmin.admin_player_id == user.id
+        ).first() is not None
+        
+        role = "admin" if is_admin else "member"
+        
+        result.append(ChatOut(
+            id=chat.id,
+            tg_chat_id=chat.tg_chat_id,
+            title=chat.title,
+            type=chat.type,
+            role=role
+        ))
+    
+    return result
+
+
+@app.get("/chats/{chat_id}", response_model=ChatOut)
+def get_chat(
+    chat_id: int,
+    user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Получает информацию о конкретном чате.
+    Пользователь должен быть админом или участником чата.
+    """
+    chat = check_chat_admin_access(chat_id, user, db, allow_member=True)
+    
+    is_admin = db.query(ChatAdmin).filter(
+        ChatAdmin.chat_id == chat.id,
+        ChatAdmin.admin_player_id == user.id
+    ).first() is not None
+    
+    role = "admin" if is_admin else "member"
+    
+    return ChatOut(
+        id=chat.id,
+        tg_chat_id=chat.tg_chat_id,
+        title=chat.title,
+        type=chat.type,
+        role=role
+    )
+
+
 @app.post("/tournaments", response_model=TournamentOut)
-def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
+def create_tournament(
+    payload: TournamentCreate,
+    chat_id: int = Query(..., description="ID чата для создания турнира"),
+    user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     try:
+        # Проверяем права доступа к чату
+        chat = check_chat_admin_access(chat_id, user, db, allow_member=False)
+        
         # базовая валидация лимитов
         if payload.scoring_type == ScoringTypeEnum.POINTS:
             if payload.points_limit is None or payload.points_limit <= 0:
@@ -314,6 +500,7 @@ def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
             scoring_type=payload.scoring_type,
             points_limit=payload.points_limit if payload.scoring_type == ScoringTypeEnum.POINTS else None,
             sets_limit=payload.sets_limit if payload.scoring_type == ScoringTypeEnum.SETS else None,
+            chat_id=chat.id,
         )
         db.add(tournament)
         db.flush()  # получаем tournament.id без commit
