@@ -29,9 +29,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragStartEvent,
-  DragEndEvent,
   useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -198,7 +198,7 @@ function DroppableArea({ id, children }: { id: string; children: React.ReactNode
 }
 
 export default function ParticipantPicker({
-  mode,
+  mode: _mode, // TODO: использовать для фильтрации по режиму турнира (Частые, Последние)
   selectedParticipants,
   onParticipantsChange,
   onClose,
