@@ -10,6 +10,22 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+# Загружаем переменные окружения из .env файла
+try:
+    from dotenv import load_dotenv
+    env_path = os.path.join(project_root, ".env")
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        print(f"Loaded .env file from: {env_path}")
+    else:
+        # Пытаемся найти .env в родительской директории
+        parent_env = os.path.join(project_root, ".env")
+        if os.path.exists(parent_env):
+            load_dotenv(parent_env)
+except ImportError:
+    # python-dotenv не установлен, продолжаем без него
+    pass
+
 try:
     from alembic.config import Config
     from alembic import command
@@ -20,7 +36,7 @@ except ImportError:
     sys.exit(1)
 
 def main():
-    # Проверяем DATABASE_URL
+    # Проверяем DATABASE_URL (теперь загружен из .env если файл существует)
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         print("ERROR: DATABASE_URL environment variable is not set")
