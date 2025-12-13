@@ -286,7 +286,8 @@ function App() {
     const stored = localStorage.getItem("activeChatId");
     return stored ? parseInt(stored, 10) : null;
   });
-  const [userTgId, setUserTgId] = useState<number | null>(() => {
+  // TODO: Добавить UI для ввода userTgId или получать из Telegram WebApp
+  const [userTgId] = useState<number | null>(() => {
     const stored = localStorage.getItem("userTgId");
     return stored ? parseInt(stored, 10) : null;
   });
@@ -454,7 +455,39 @@ function App() {
   };
 
 
+  const handleChatSelected = (chatId: number) => {
+    setActiveChatId(chatId);
+    localStorage.setItem("activeChatId", chatId.toString());
+    setView("createTournament");
+  };
+
+  const handleChangeChat = () => {
+    setView("selectChat");
+  };
+
   const renderContent = () => {
+    // Экран выбора группы
+    if (view === "selectChat" || (!activeChatId && userTgId)) {
+      if (!userTgId) {
+        return (
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Требуется авторизация
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Укажите ваш Telegram ID для работы с приложением.
+            </Typography>
+          </Paper>
+        );
+      }
+      return (
+        <ChatSelector
+          userTgId={userTgId}
+          onChatSelected={handleChatSelected}
+        />
+      );
+    }
+
     if (view === "createTournament") {
       return (
         <Box mt={3}>
