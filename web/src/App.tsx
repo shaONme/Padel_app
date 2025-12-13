@@ -24,9 +24,6 @@ import {
   TableBody,
   ToggleButtonGroup,
   ToggleButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
 } from "@mui/material";
 import ParticipantPicker from "./ParticipantPicker";
 
@@ -87,7 +84,7 @@ interface Player {
   rating_letter: string | null;
 }
 
-type View = "rating" | "createTournament" | "players";
+type View = "rating" | "createTournament" | "players" | "selectParticipants";
 
 const theme = createTheme({
   palette: {
@@ -278,7 +275,6 @@ function App() {
 
   // участники турнира
   const [selectedParticipants, setSelectedParticipants] = useState<Player[]>([]);
-  const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
 
   // просмотр игроков (общий список)
   const [players, setPlayers] = useState<Player[]>([]);
@@ -361,7 +357,7 @@ function App() {
     }
 
     setError(null);
-    setParticipantsDialogOpen(true);
+    setView("selectParticipants");
   };
 
   const handleCreateTournament = async () => {
@@ -421,7 +417,7 @@ function App() {
       setTournamentResult(data);
       setTournamentName("");
       setSelectedParticipants([]);
-      setParticipantsDialogOpen(false);
+      setView("createTournament");
       // оставляем режим, тип счёта — можно по желанию чистить
     } catch (e: any) {
       console.error("Ошибка при создании турнира:", e);
@@ -702,6 +698,64 @@ function App() {
       );
     }
 
+    if (view === "selectParticipants") {
+      return (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: "background.default",
+            zIndex: 1300,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            sx={{
+              borderBottom: 1,
+              borderColor: "divider",
+              p: 2,
+              bgcolor: "background.paper",
+            }}
+          >
+            <Stack spacing={1}>
+              <Typography variant="h6" sx={{ color: "#d97706", fontWeight: 600 }}>
+                Выбор участников турнира
+              </Typography>
+              <Stack direction="row" spacing={2} flexWrap="wrap">
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Турнир:</strong> {tournamentName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Режим:</strong> {ratingModes.find(m => m.code === tournamentMode)?.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Счёт:</strong> {scoreType === "points" 
+                    ? `По очкам (лимит: ${pointsLimit})` 
+                    : `По сетам (до ${setsLimit} сетов)`}
+                </Typography>
+              </Stack>
+            </Stack>
+          </Box>
+          <Box sx={{ flex: 1, overflow: "hidden", p: 3 }}>
+            <ParticipantPicker
+              mode={tournamentMode}
+              selectedParticipants={selectedParticipants}
+              onParticipantsChange={setSelectedParticipants}
+              onClose={() => setView("createTournament")}
+              onCreateTournament={handleCreateTournament}
+              creatingTournament={creatingTournament}
+              maxParticipants={20}
+            />
+          </Box>
+        </Box>
+      );
+    }
+
     // view === "players"
     return (
       <Box mt={3}>
@@ -777,141 +831,102 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ flexGrow: 1 }}>
-        <AppBar position="static" elevation={1}>
-          <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1, color: "#d97706", fontWeight: 600 }}>
-              Padel Admin
-            </Typography>
+        {view !== "selectParticipants" && (
+          <AppBar position="static" elevation={1}>
+            <Toolbar>
+              <Typography variant="h6" sx={{ flexGrow: 1, color: "#d97706", fontWeight: 600 }}>
+                Padel Admin
+              </Typography>
 
-            <Stack 
-              direction="row" 
-              spacing={1}
-              sx={{
-                flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                gap: { xs: 0.5, sm: 1 }
-              }}
-            >
-              <Button
-                variant={view === "createTournament" ? "contained" : "outlined"}
-                onClick={() => setView("createTournament")}
-                size="small"
-                sx={{ 
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 },
-                  backgroundColor: view === "createTournament" ? "#b0b0b0" : "transparent",
-                  color: view === "createTournament" ? "#1a1a1a" : "#b0b0b0",
-                  borderColor: "#b0b0b0",
-                  "&:hover": {
-                    backgroundColor: view === "createTournament" ? "#c0c0c0" : "#4a4a4a",
-                    borderColor: "#c0c0c0",
-                  }
+              <Stack 
+                direction="row" 
+                spacing={1}
+                sx={{
+                  flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                  gap: { xs: 0.5, sm: 1 }
                 }}
               >
-                Создать турнир
-              </Button>
-              <Button
-                variant={view === "rating" ? "contained" : "outlined"}
-                onClick={() => setView("rating")}
-                size="small"
-                sx={{ 
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 },
-                  backgroundColor: view === "rating" ? "#b0b0b0" : "transparent",
-                  color: view === "rating" ? "#1a1a1a" : "#b0b0b0",
-                  borderColor: "#b0b0b0",
-                  "&:hover": {
-                    backgroundColor: view === "rating" ? "#c0c0c0" : "#4a4a4a",
-                    borderColor: "#c0c0c0",
-                  }
-                }}
-              >
-                Рейтинг
-              </Button>
-              <Button
-                variant={view === "players" ? "contained" : "outlined"}
-                onClick={() => setView("players")}
-                size="small"
-                sx={{ 
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  px: { xs: 1, sm: 2 },
-                  backgroundColor: view === "players" ? "#b0b0b0" : "transparent",
-                  color: view === "players" ? "#1a1a1a" : "#b0b0b0",
-                  borderColor: "#b0b0b0",
-                  "&:hover": {
-                    backgroundColor: view === "players" ? "#c0c0c0" : "#4a4a4a",
-                    borderColor: "#c0c0c0",
-                  }
-                }}
-              >
-                Игроки
-              </Button>
-            </Stack>
-          </Toolbar>
-        </AppBar>
-
-        <Container 
-          maxWidth="lg" 
-          sx={{ 
-            mt: { xs: 2, sm: 3 }, 
-            mb: { xs: 2, sm: 4 },
-            px: { xs: 1, sm: 2 }
-          }}
-        >
-          {error && (
-            <Box mb={2}>
-              <Alert severity="error" onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            </Box>
-          )}
-
-          {renderContent()}
-        </Container>
-
-        {/* Модальное окно выбора участников */}
-        <Dialog
-          open={participantsDialogOpen}
-          onClose={() => setParticipantsDialogOpen(false)}
-          maxWidth="xl"
-          fullWidth
-          fullScreen={false}
-          PaperProps={{
-            sx: {
-              height: { xs: "100vh", sm: "90vh" },
-              maxHeight: { xs: "100vh", sm: "90vh" },
-            },
-          }}
-        >
-          <DialogTitle sx={{ color: "#d97706", fontWeight: 600, borderBottom: 1, borderColor: "divider" }}>
-            <Stack spacing={1}>
-              <Typography variant="h6">Выбор участников турнира</Typography>
-              <Stack direction="row" spacing={2} flexWrap="wrap">
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Турнир:</strong> {tournamentName}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Режим:</strong> {ratingModes.find(m => m.code === tournamentMode)?.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Счёт:</strong> {scoreType === "points" 
-                    ? `По очкам (лимит: ${pointsLimit})` 
-                    : `По сетам (до ${setsLimit} сетов)`}
-                </Typography>
+                <Button
+                  variant={view === "createTournament" ? "contained" : "outlined"}
+                  onClick={() => setView("createTournament")}
+                  size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1, sm: 2 },
+                    backgroundColor: view === "createTournament" ? "#b0b0b0" : "transparent",
+                    color: view === "createTournament" ? "#1a1a1a" : "#b0b0b0",
+                    borderColor: "#b0b0b0",
+                    "&:hover": {
+                      backgroundColor: view === "createTournament" ? "#c0c0c0" : "#4a4a4a",
+                      borderColor: "#c0c0c0",
+                    }
+                  }}
+                >
+                  Создать турнир
+                </Button>
+                <Button
+                  variant={view === "rating" ? "contained" : "outlined"}
+                  onClick={() => setView("rating")}
+                  size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1, sm: 2 },
+                    backgroundColor: view === "rating" ? "#b0b0b0" : "transparent",
+                    color: view === "rating" ? "#1a1a1a" : "#b0b0b0",
+                    borderColor: "#b0b0b0",
+                    "&:hover": {
+                      backgroundColor: view === "rating" ? "#c0c0c0" : "#4a4a4a",
+                      borderColor: "#c0c0c0",
+                    }
+                  }}
+                >
+                  Рейтинг
+                </Button>
+                <Button
+                  variant={view === "players" ? "contained" : "outlined"}
+                  onClick={() => setView("players")}
+                  size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1, sm: 2 },
+                    backgroundColor: view === "players" ? "#b0b0b0" : "transparent",
+                    color: view === "players" ? "#1a1a1a" : "#b0b0b0",
+                    borderColor: "#b0b0b0",
+                    "&:hover": {
+                      backgroundColor: view === "players" ? "#c0c0c0" : "#4a4a4a",
+                      borderColor: "#c0c0c0",
+                    }
+                  }}
+                >
+                  Игроки
+                </Button>
               </Stack>
-            </Stack>
-          </DialogTitle>
-          <DialogContent sx={{ p: 3, height: "100%", overflow: "hidden" }}>
-            <ParticipantPicker
-              mode={tournamentMode}
-              selectedParticipants={selectedParticipants}
-              onParticipantsChange={setSelectedParticipants}
-              onClose={() => setParticipantsDialogOpen(false)}
-              onCreateTournament={handleCreateTournament}
-              creatingTournament={creatingTournament}
-              maxParticipants={20}
-            />
-          </DialogContent>
-        </Dialog>
+            </Toolbar>
+          </AppBar>
+        )}
+
+        {view === "selectParticipants" ? (
+          renderContent()
+        ) : (
+          <Container 
+            maxWidth="lg" 
+            sx={{ 
+              mt: { xs: 2, sm: 3 }, 
+              mb: { xs: 2, sm: 4 },
+              px: { xs: 1, sm: 2 }
+            }}
+          >
+            {error && (
+              <Box mb={2}>
+                <Alert severity="error" onClose={() => setError(null)}>
+                  {error}
+                </Alert>
+              </Box>
+            )}
+
+            {renderContent()}
+          </Container>
+        )}
       </Box>
     </ThemeProvider>
   );

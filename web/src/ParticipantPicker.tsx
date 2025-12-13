@@ -346,11 +346,10 @@ export default function ParticipantPicker({
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Заголовок с табами */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2, pb: 1 }}>
         <Tabs
           value={activeTab}
           onChange={(_, newValue) => setActiveTab(newValue)}
-          sx={{ mb: 1 }}
         >
           <Tab label="Частые" value="frequent" />
           <Tab label="Последние" value="recent" />
