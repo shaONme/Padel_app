@@ -55,19 +55,61 @@ def main():
     alembic_cfg.set_main_option("sqlalchemy.url", database_url)
     
     print("Applying Alembic migrations...")
-    print(f"Database URL: {database_url.split('@')[0]}@***")  # Не показываем пароль
+    # Показываем URL без пароля
+    try:
+        url_parts = database_url.split('@')
+        if len(url_parts) > 1:
+            print(f"Database URL: {url_parts[0]}@***/{url_parts[1].split('/')[-1]}")
+        else:
+            print(f"Database URL: ***")
+    except:
+        print("Database URL: ***")
     
     try:
+        # Проверяем подключение перед применением миграций
+        from sqlalchemy import create_engine, text
+        print("\nTesting database connection...")
+        test_engine = create_engine(database_url)
+        with test_engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            print("✅ Database connection successful!")
+        test_engine.dispose()
+        
+        print("\nApplying Alembic migrations...")
         # Применяем все миграции до head
         command.upgrade(alembic_cfg, "head")
         print("✅ Migrations applied successfully!")
         
         # Показываем текущую версию
-        current = command.current(alembic_cfg)
-        print(f"Current migration version: {current}")
+        print("\nChecking migration status...")
+        current = command.current(alembic_cfg, verbose=True)
         
     except Exception as e:
-        print(f"❌ Error applying migrations: {e}")
+        error_msg = str(e)
+        print(f"\n❌ Error: {error_msg}\n")
+        
+        # Полезные подсказки в зависимости от типа ошибки
+        if "could not translate host name" in error_msg or "Name or service not known" in error_msg:
+            print("💡 DNS Resolution Error:")
+            print("   - Check your internet connection")
+            print("   - Verify the database hostname is correct")
+            print("   - For Render.com, the hostname should end with '.render.com'")
+            print("   - Example: dpg-xxxxx-a.oregon-postgres.render.com")
+            print("   - Try pinging the hostname to verify it resolves")
+        elif "password authentication failed" in error_msg:
+            print("💡 Authentication Error:")
+            print("   - Check your DATABASE_URL username and password")
+        elif "could not connect to server" in error_msg:
+            print("💡 Connection Error:")
+            print("   - Check if the database server is running")
+            print("   - Verify the host and port are correct")
+            print("   - Check firewall settings")
+        elif "database" in error_msg.lower() and "does not exist" in error_msg.lower():
+            print("💡 Database Error:")
+            print("   - The database does not exist")
+            print("   - Create it first or check the database name in DATABASE_URL")
+        
+        print("\nFull error details:")
         import traceback
         traceback.print_exc()
         sys.exit(1)
