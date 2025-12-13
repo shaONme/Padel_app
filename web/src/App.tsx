@@ -24,12 +24,11 @@ import {
   TableBody,
   ToggleButtonGroup,
   ToggleButton,
-  Autocomplete,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
 } from "@mui/material";
+import ParticipantPicker from "./ParticipantPicker";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -278,9 +277,6 @@ function App() {
   const [setsLimit, setSetsLimit] = useState<number | "">(1);
 
   // участники турнира
-  const [participantQuery, setParticipantQuery] = useState("");
-  const [participantOptions, setParticipantOptions] = useState<Player[]>([]);
-  const [participantLoading, setParticipantLoading] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<Player[]>([]);
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
 
@@ -347,46 +343,6 @@ function App() {
       loadPlayers();
     }
   }, [view]);
-
-  // поиск игроков для автодополнения участников
-  useEffect(() => {
-    const q = participantQuery.trim();
-    if (!q) {
-      setParticipantOptions([]);
-      return;
-    }
-
-    let cancelled = false;
-    setParticipantLoading(true);
-
-    fetch(`${API_URL}/players/search?q=${encodeURIComponent(q)}`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data: Player[]) => {
-        if (!cancelled) {
-          setParticipantOptions(data);
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setParticipantOptions([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setParticipantLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [participantQuery]);
 
   const handleOpenParticipantsDialog = () => {
     if (!tournamentName.trim() || !tournamentMode) {
@@ -476,12 +432,6 @@ function App() {
     }
   };
 
-  const formatPlayerLabel = (p: Player) => {
-    const parts = [p.display_name];
-    if (p.username) parts.push(`@${p.username}`);
-    parts.push(`tg:${p.tg_id}`);
-    return parts.join(" · ");
-  };
 
   const renderContent = () => {
     if (view === "createTournament") {
@@ -922,104 +872,45 @@ function App() {
         <Dialog
           open={participantsDialogOpen}
           onClose={() => setParticipantsDialogOpen(false)}
-          maxWidth="md"
+          maxWidth="xl"
           fullWidth
+          fullScreen={false}
+          PaperProps={{
+            sx: {
+              height: { xs: "100vh", sm: "90vh" },
+              maxHeight: { xs: "100vh", sm: "90vh" },
+            },
+          }}
         >
-          <DialogTitle sx={{ color: "#d97706", fontWeight: 600 }}>
-            Выбор участников турнира
-          </DialogTitle>
-          <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
-                <Stack spacing={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Турнир:</strong> {tournamentName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Режим:</strong> {ratingModes.find(m => m.code === tournamentMode)?.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Счёт:</strong> {scoreType === "points" 
-                      ? `По очкам (лимит: ${pointsLimit})` 
-                      : `По сетам (до ${setsLimit} сетов)`}
-                  </Typography>
-                </Stack>
-              </Paper>
-
-              <Autocomplete
-                multiple
-                options={participantOptions}
-                value={selectedParticipants}
-                loading={participantLoading}
-                getOptionLabel={(option) => formatPlayerLabel(option)}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                filterOptions={(x) => x} // отключаем внутренний фильтр, всё делает бэк
-                onChange={(_, value) => setSelectedParticipants(value)}
-                onInputChange={(_, value) => {
-                  setParticipantQuery(value);
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Добавить игроков"
-                    placeholder="Начни вводить имя / @username / tg_id"
-                    helperText="Игроки берутся из зарегистрированных (ботом / ранее добавленных)"
-                    fullWidth
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <li {...props} key={option.id}>
-                    {formatPlayerLabel(option)}
-                  </li>
-                )}
-                noOptionsText={
-                  participantQuery.trim()
-                    ? "Ничего не найдено"
-                    : "Начни вводить имя или @username"
-                }
-              />
-
-              {selectedParticipants.length > 0 && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Выбрано: {selectedParticipants.length}
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {selectedParticipants.map((p) => (
-                      <Chip
-                        key={p.id}
-                        label={p.display_name}
-                        onDelete={() =>
-                          setSelectedParticipants((prev) =>
-                            prev.filter((x) => x.id !== p.id)
-                          )
-                        }
-                        size="small"
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
-                  {error}
-                </Alert>
-              )}
+          <DialogTitle sx={{ color: "#d97706", fontWeight: 600, borderBottom: 1, borderColor: "divider" }}>
+            <Stack spacing={1}>
+              <Typography variant="h6">Выбор участников турнира</Typography>
+              <Stack direction="row" spacing={2} flexWrap="wrap">
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Турнир:</strong> {tournamentName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Режим:</strong> {ratingModes.find(m => m.code === tournamentMode)?.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Счёт:</strong> {scoreType === "points" 
+                    ? `По очкам (лимит: ${pointsLimit})` 
+                    : `По сетам (до ${setsLimit} сетов)`}
+                </Typography>
+              </Stack>
             </Stack>
+          </DialogTitle>
+          <DialogContent sx={{ p: 3, height: "100%", overflow: "hidden" }}>
+            <ParticipantPicker
+              mode={tournamentMode}
+              selectedParticipants={selectedParticipants}
+              onParticipantsChange={setSelectedParticipants}
+              onClose={() => setParticipantsDialogOpen(false)}
+              onCreateTournament={handleCreateTournament}
+              creatingTournament={creatingTournament}
+              maxParticipants={20}
+            />
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setParticipantsDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleCreateTournament}
-              disabled={creatingTournament || selectedParticipants.length === 0}
-            >
-              {creatingTournament ? "Создаём..." : "Создать турнир"}
-            </Button>
-          </DialogActions>
         </Dialog>
       </Box>
     </ThemeProvider>
