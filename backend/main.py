@@ -23,6 +23,7 @@ from typing import List, Optional
 from datetime import datetime
 from fastapi import Query
 from sqlalchemy import or_, String, cast
+import os
 
 # ВАЖНО: Не используем create_all в продакшене!
 # Таблицы создаются через Alembic миграции.
@@ -34,11 +35,10 @@ app = FastAPI(title="Padel Backend API")
 # Подключаем роутер для бота
 app.include_router(bot_router)
 
-# Разрешаем запросы с фронта (Vite по умолчанию 5173 порт)
-origins = [
-    "https://paddleapp.netlify.app",
-    "http://localhost:5173",
-]
+# Разрешаем запросы с фронта
+# CORS_ORIGINS из .env, по умолчанию для локальной разработки
+cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+origins = [origin.strip() for origin in cors_origins_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -397,81 +397,6 @@ def get_rating_table(
             )
         )
     return rows
-
-
-# ==================== Эндпоинты для чатов ====================
-
-class ChatOut(BaseModel):
-    id: int
-    tg_chat_id: int
-    title: Optional[str]
-    type: Optional[str]
-    role: Optional[str] = None  # admin, member (вычисляется для текущего пользователя)
-
-    class Config:
-        orm_mode = True
-
-
-@app.get("/chats", response_model=List[ChatOut])
-def list_chats(
-    user: Player = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    admin_only: bool = Query(False, description="Показывать только чаты, где пользователь админ")
-):
-    """
-    Возвращает список чатов для текущего пользователя.
-    По умолчанию показывает чаты, где пользователь админ или участник.
-    Если admin_only=True, показывает только чаты, где пользователь админ.
-    """
-    chats = get_user_chats(user, db, admin_only=admin_only)
-    
-    result = []
-    for chat in chats:
-        # Определяем роль пользователя
-        is_admin = db.query(ChatAdmin).filter(
-            ChatAdmin.chat_id == chat.id,
-            ChatAdmin.admin_player_id == user.id
-        ).first() is not None
-        
-        role = "admin" if is_admin else "member"
-        
-        result.append(ChatOut(
-            id=chat.id,
-            tg_chat_id=chat.tg_chat_id,
-            title=chat.title,
-            type=chat.type,
-            role=role
-        ))
-    
-    return result
-
-
-@app.get("/chats/{chat_id}", response_model=ChatOut)
-def get_chat(
-    chat_id: int,
-    user: Player = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Получает информацию о конкретном чате.
-    Пользователь должен быть админом или участником чата.
-    """
-    chat = check_chat_admin_access(chat_id, user, db, allow_member=True)
-    
-    is_admin = db.query(ChatAdmin).filter(
-        ChatAdmin.chat_id == chat.id,
-        ChatAdmin.admin_player_id == user.id
-    ).first() is not None
-    
-    role = "admin" if is_admin else "member"
-    
-    return ChatOut(
-        id=chat.id,
-        tg_chat_id=chat.tg_chat_id,
-        title=chat.title,
-        type=chat.type,
-        role=role
-    )
 
 
 @app.post("/tournaments", response_model=TournamentOut)
