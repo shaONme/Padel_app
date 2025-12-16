@@ -30,6 +30,20 @@ services:
     networks:
       - padel_network
 
+  # Web - React приложение (собирается в Docker)
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+    container_name: padel_web
+    volumes:
+      - web_dist:/usr/share/nginx/html
+    # Не пробрасываем порты, используем nginx для раздачи
+    networks:
+      - padel_network
+
   # Nginx - статика и reverse proxy
   nginx:
     build:
@@ -40,11 +54,13 @@ services:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
-      - ./web/dist:/usr/share/nginx/html:ro
+      # Используем тот же том, что и web контейнер
+      - web_dist:/usr/share/nginx/html:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - backend
+      - web
     restart: unless-stopped
     networks:
       - padel_network
@@ -70,6 +86,9 @@ services:
   #     retries: 5
   #   networks:
   #     - padel_network
+
+volumes:
+  web_dist:
 
 # volumes:
 #   postgres_data:
