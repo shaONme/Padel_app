@@ -186,6 +186,21 @@ docker-compose up -d
 docker-compose down -v
 ```
 
+### Если получаете ошибку "container name already in use"
+
+Если при запуске получаете ошибку, что контейнер уже существует:
+
+```bash
+# Остановите и удалите все контейнеры проекта
+docker-compose down
+
+# Или принудительно остановите и удалите все контейнеры
+docker-compose down --remove-orphans
+
+# Затем запустите заново
+docker-compose up -d --build
+```
+
 ## Переменные окружения
 
 Основные переменные в `.env`:
