@@ -1,23 +1,4 @@
 services:
-  # PostgreSQL база данных
-  postgres:
-    image: postgres:15-alpine
-    container_name: padel_postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-padel_db}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Backend API (FastAPI)
   backend:
     build:
@@ -26,11 +7,9 @@ services:
     container_name: padel_backend
     env_file:
       - .env
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-padel_db}
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # DATABASE_URL берется напрямую из .env файла
+    # Если используете внешнюю БД (например, Render), укажите полный DATABASE_URL в .env
+    # Если хотите использовать локальный postgres, раскомментируйте сервис postgres ниже
     restart: unless-stopped
     networks:
       - padel_network
@@ -70,8 +49,30 @@ services:
     networks:
       - padel_network
 
-volumes:
-  postgres_data:
+  # PostgreSQL база данных (опционально, для локальной разработки)
+  # Раскомментируйте этот блок, если хотите использовать локальную БД вместо внешней
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: padel_postgres
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  #     POSTGRES_DB: ${POSTGRES_DB:-padel_db}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "${POSTGRES_PORT:-5432}:5432"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - padel_network
+
+# volumes:
+#   postgres_data:
 
 networks:
   padel_network:

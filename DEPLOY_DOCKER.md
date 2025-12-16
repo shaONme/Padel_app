@@ -37,7 +37,12 @@
    ⚠️ **ВАЖНО:** Без файла `.env` контейнеры не запустятся!
 
 4. **Настройте переменные окружения в `.env`:**
-   - `POSTGRES_PASSWORD` - надежный пароль для PostgreSQL
+   
+   **Обязательные переменные:**
+   - `DATABASE_URL` - полный URL вашей базы данных PostgreSQL (например, для Render):
+     ```
+     DATABASE_URL=postgresql://user:password@host:5432/dbname
+     ```
    - `BOT_TOKEN` - токен вашего Telegram бота
    - `CORS_ORIGINS` - домены, с которых будут приниматься запросы (через запятую), например: 
      - Для Cloudflare Tunnel: `https://administered-martin-taxi-disc.trycloudflare.com`
@@ -185,15 +190,22 @@ docker-compose down -v
 
 Основные переменные в `.env`:
 
+**Обязательные:**
+- `DATABASE_URL` - полный URL базы данных PostgreSQL (например: `postgresql://user:password@host:5432/dbname`)
+- `BOT_TOKEN` - токен Telegram бота
+- `WEBAPP_URL` - URL веб-приложения
+- `CORS_ORIGINS` - разрешенные CORS origins (через запятую)
+
+**Опциональные:**
+- `BACKEND_URL` - URL backend API (внутри Docker: `http://backend:8000`, по умолчанию используется это значение)
+- `NGINX_HTTP_PORT` - HTTP порт Nginx (по умолчанию 80)
+- `NGINX_HTTPS_PORT` - HTTPS порт Nginx (по умолчанию 443)
+
+**Для локальной БД (если используете postgres сервис в docker-compose.yml):**
 - `POSTGRES_USER` - пользователь PostgreSQL
 - `POSTGRES_PASSWORD` - пароль PostgreSQL
 - `POSTGRES_DB` - имя базы данных
-- `BOT_TOKEN` - токен Telegram бота
-- `BACKEND_URL` - URL backend API (внутри Docker: `http://backend:8000`)
-- `WEBAPP_URL` - URL веб-приложения
-- `CORS_ORIGINS` - разрешенные CORS origins (через запятую)
-- `NGINX_HTTP_PORT` - HTTP порт Nginx (по умолчанию 80)
-- `NGINX_HTTPS_PORT` - HTTPS порт Nginx (по умолчанию 443)
+- `POSTGRES_PORT` - порт PostgreSQL
 
 ## Troubleshooting
 
